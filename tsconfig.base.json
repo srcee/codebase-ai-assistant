@@ -1,0 +1,24 @@
+{
+  "compileOnSave": false,
+  "compilerOptions": {
+    "rootDir": ".",
+    "sourceMap": true,
+    "declaration": false,
+    "moduleResolution": "bundler",
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "importHelpers": true,
+    "target": "es2015",
+    "module": "esnext",
+    "lib": ["es2020", "dom"],
+    "skipLibCheck": true,
+    "skipDefaultLibCheck": true,
+    "strict": true,
+    "types": ["node"],
+    "paths": {
+      "@codebase-ai/contracts": ["./libs/shared/contracts/src/index.ts"],
+      "@codebase-ai/server-config": ["./libs/server/config/src/index.ts"]
+    }
+  },
+  "exclude": ["node_modules", "tmp"]
+}

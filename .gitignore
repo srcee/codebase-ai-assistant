@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+
+# Build output and caches
+dist/
+build/
+out/
+coverage/
+.nx/
+.angular/
+.vite/
+*.tsbuildinfo
+
+# Environment and secrets (keep examples)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+credentials*.json
+
+# Local data
+.data/
+pgdata/
+*.log
+
+# IDE (shared settings are not committed)
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Nx / TypeScript
+tmp/
+out-tsc/
+
+# Local planning docs
+docs/
+
+vite.config.*.timestamp*
+vitest.config.*.timestamp*
+.vitest
