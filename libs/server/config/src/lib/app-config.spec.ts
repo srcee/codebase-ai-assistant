@@ -10,6 +10,16 @@ describe('loadConfig', () => {
       allowNonLoopback: false,
     });
     expect(config.allowedRepoRoots).toEqual([]);
+    expect(config.requireGitDirectory).toBe(true);
+  });
+
+  it('allows disabling the .git directory requirement', () => {
+    expect(
+      loadConfig({ REPO_REQUIRE_GIT_DIR: 'false' }).requireGitDirectory,
+    ).toBe(false);
+    expect(() => loadConfig({ REPO_REQUIRE_GIT_DIR: 'maybe' })).toThrow(
+      ConfigError,
+    );
   });
 
   it('ignores empty-string values', () => {

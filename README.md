@@ -53,17 +53,39 @@ PostgreSQL with pgvector runs in Docker (`docker-compose.yml`), bound to `127.0.
 | `npm run db:reset`                            | Delete all local data, then start and migrate a fresh database    |
 | `npm run db:test:up` / `npm run db:test:down` | Start / remove the throwaway test database (port 5433, in memory) |
 
-Integration tests use `TEST_DATABASE_URL` and are skipped when it is unset. They drop the `public` schema, so the database name must end in `_test`. `GET /health` returns 503 with `status: "degraded"` when the database is unreachable, the `vector` extension is missing, the schema is not migrated, or the embedding column dimension differs from `EMBEDDING_DIMENSIONS`.
+Integration tests use `TEST_DATABASE_URL` and are skipped when it is unset. They drop the `public` schema, so the database name must end in `_test`. The API suite uses its own `<name>_api_test` database on the same server (created if missing) so it can run in parallel with the schema suite. `GET /health` returns 503 with `status: "degraded"` when the database is unreachable, the `vector` extension is missing, the schema is not migrated, or the embedding column dimension differs from `EMBEDDING_DIMENSIONS`.
 
 ### Layout
 
-- `apps/api`: NestJS API (global validation rejects unknown fields; unexpected errors return a generic 500).
+- `apps/api`: NestJS API (global validation rejects unknown fields; unexpected errors return a generic 500). Feature modules live here, for example `src/app/repositories` (path policy and `/repositories` endpoints).
 - `apps/web`: React + Vite UI.
 - `libs/shared/contracts`: DTO types shared with the frontend (`scope:shared`).
 - `libs/server/config`: validated environment configuration (`scope:server`).
 - `libs/server/database`: Drizzle schema, migrations, and the NestJS connection module (`scope:server`).
 
 The web app cannot import `scope:server` libraries; this is enforced by lint.
+
+### Repositories API
+
+Repositories can only be registered from directories inside `ALLOWED_REPO_ROOTS`. Responses carry a display name and a path relative to the allowed root, never an absolute path. See [docs/decisions/0002-repository-path-policy.md](docs/decisions/0002-repository-path-policy.md).
+
+| Endpoint                   | Body              | Success                                                      |
+| -------------------------- | ----------------- | ------------------------------------------------------------ |
+| `POST /repositories`       | `{ path, name? }` | `201` with the repository (`name` defaults to the directory) |
+| `GET /repositories`        |                   | `200` with a list ordered by name                            |
+| `GET /repositories/:id`    |                   | `200` with the repository                                    |
+| `DELETE /repositories/:id` |                   | `204`; files, chunks, and index jobs are deleted by cascade  |
+
+Failure modes:
+
+| Status | Cause                                                                                                                                                                                      |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `400`  | Invalid body or unknown field; malformed `:id`; relative, traversal (`..`), UNC, or device path; missing path or path outside the allowed roots (same message); not a directory; no `.git` |
+| `404`  | Unknown repository id                                                                                                                                                                      |
+| `409`  | The canonical path (after resolving links, case, and separators) is already registered                                                                                                     |
+| `503`  | `DATABASE_URL` is not configured                                                                                                                                                           |
+
+The API refuses to start on a non-loopback `API_HOST` unless `API_ALLOW_NON_LOOPBACK=true`, and logs a warning when it is set.
 
 ### Environment variables
 
@@ -78,6 +100,7 @@ Configuration is validated at startup; invalid values stop the API. See [.env.ex
 | `TEST_DATABASE_URL`                                                                                            | unset                    | Integration tests only; database name must end in `_test`                  |
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_PORT`, `POSTGRES_TEST_DB`, `POSTGRES_TEST_PORT` | see `.env.example`       | Read by `docker-compose.yml` only                                          |
 | `ALLOWED_REPO_ROOTS`                                                                                           | empty (none allowed)     | Platform path delimiter (`;` on Windows)                                   |
+| `REPO_REQUIRE_GIT_DIR`                                                                                         | `true`                   | Require a `.git` directory when registering a repository                   |
 | `INFERENCE_BASE_URL`                                                                                           | `http://127.0.0.1:11434` | Local runtime; remote-endpoint rejection arrives in Stage 5                |
 | `EMBEDDING_MODEL`                                                                                              | unset                    | Stage 5                                                                    |
 | `CHAT_MODEL`                                                                                                   | unset                    | Stage 5                                                                    |

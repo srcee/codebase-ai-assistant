@@ -6,6 +6,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
+import { DatabaseNotConfiguredError } from '@codebase-ai/server-database';
 
 /** Returns generic 500s and logs only the error class, since messages can contain source or secrets. */
 @Catch()
@@ -18,6 +19,13 @@ export class SanitizedExceptionFilter implements ExceptionFilter {
 
     if (exception instanceof HttpException) {
       response.status(exception.getStatus()).json(exception.getResponse());
+      return;
+    }
+
+    if (exception instanceof DatabaseNotConfiguredError) {
+      response
+        .status(503)
+        .json({ statusCode: 503, message: exception.message });
       return;
     }
 

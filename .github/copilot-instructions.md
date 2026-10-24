@@ -1,6 +1,6 @@
 # Copilot instructions
 
-Local-first Codebase RAG Assistant. Nx monorepo: NestJS API (`apps/api`), React web (`apps/web`), `libs/server/*`, `libs/shared/*`. Stage plans live in `docs/stage-N.md`; the full context is `docs/Codebase_RAG_Assistant_Project_Context.md`.
+Local-first Codebase RAG Assistant. Nx monorepo: NestJS API (`apps/api`, feature modules in `apps/api/src/app/modules/<feature>`), React web (`apps/web`), `libs/shared/*`, `libs/server/*` (config and database only). Stage plans live in `docs/stage-N.md`; the full context is `docs/Codebase_RAG_Assistant_Project_Context.md`.
 
 ## Privacy and security (non-negotiable)
 
@@ -17,12 +17,14 @@ Local-first Codebase RAG Assistant. Nx monorepo: NestJS API (`apps/api`), React 
 ## Scope and architecture
 
 - One vertical slice at a time, following the current `docs/stage-N.md`. Do not scaffold future stages.
-- Modular monolith: libraries are code organization, not microservices. Create a new lib only when a concrete need exists.
+- Modular monolith. Feature modules (codebases, ingestion, embeddings, retrieval, chat, and so on) live in `apps/api/src/app/modules/<feature>`, one folder per Nest module, organised by kind (`controllers/`, `services/`, `dto/`, `errors/`, `types/`, `mappers/`, `utils/`). Cross-cutting code (filters, guards, interceptors, decorators) lives in sibling folders under `apps/api/src/app/`. `libs/` is only for code shared across apps or reusable tooling (contracts, test fixtures). Create a new lib only when a concrete need exists.
 - Respect Nx module boundaries and tags (`scope:server`, `scope:shared`, `scope:web`). The web app must not import server libs. Shared API shapes go in `libs/shared/contracts`.
 - Data access is Drizzle ORM with `pg`. Use raw `sql` only for vector and hybrid queries. One Postgres database with pgvector.
 - REST API (SSE for streaming chat). No LangChain/LangGraph or other RAG frameworks.
 - Do not add dependencies or architecture layers without a concrete need. Explain trade-offs before broad changes.
 - Use explicit TypeScript types and zod-validated configuration.
+- Pin dependencies to exact versions in `package.json` (no `^` or `~`).
+- `DatabaseModule` is not global: every Nest module that injects `DatabaseService` must import it. `APP_CONFIG` is provided globally by `AppModule`.
 
 ## Database
 
@@ -43,7 +45,10 @@ Local-first Codebase RAG Assistant. Nx monorepo: NestJS API (`apps/api`), React 
 ## Code style
 
 - Keep files small and focused. Group related declarations. Avoid one huge file or one flat folder.
+- API layout rule: every file goes in the folder for its kind (`controllers/`, `services/`, `dto/`, `errors/`, `types/`, `mappers/`, `utils/`, `guards/`, `interceptors/`, `decorators/`, `filters/`). Never leave a controller, service, DTO, error, or mapper loose at a module root or in a topic subfolder (no `path-policy/`-style folders). Only `*.module.ts` and module-wide integration specs sit at the module root; unit specs sit next to the file they test.
 - Put each error class in its own file.
+- Move or rename files with `git mv` to keep history. In the same change, update imports and any docs that reference the old path, then run lint, test, and build.
+- If `git mv` on a folder fails with `Permission denied` (Windows locks), move the files one by one and delete the old folder. After any move, list the folders and run `git --no-pager status --short` to confirm no old paths remain. Search results can be stale, so confirm on disk.
 - Comments only for what the code cannot show, one short line. No comments that restate the code or describe your change.
 - No unrequested refactors, features, docstrings, or markdown files documenting changes.
 - Document new commands, env vars, migrations, and failure modes in the README or the relevant stage/decision doc. Record significant decisions in `docs/decisions/`.
