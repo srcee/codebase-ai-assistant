@@ -42,11 +42,15 @@ export default defineConfig(() => ({
     watch: false,
     globals: true,
     environment: 'jsdom',
+    restoreMocks: true,
+    clearMocks: true,
+    unstubGlobals: true,
     include: ['{src,tests}/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
     reporters: ['default'],
     coverage: {
       reportsDirectory: '../../coverage/apps/web',
       provider: 'v8' as const,
+      thresholds: { statements: 85, branches: 80, functions: 85, lines: 85 },
     },
   },
 }));

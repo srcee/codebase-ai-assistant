@@ -1,4 +1,9 @@
 import { delimiter } from 'node:path';
+import {
+  assertNotLeaked,
+  CANARY_DB_PASSWORD,
+  faker,
+} from '@codebase-ai/shared-testing';
 import { ConfigError, loadConfig } from './app-config';
 
 describe('loadConfig', () => {
@@ -27,10 +32,11 @@ describe('loadConfig', () => {
   });
 
   it('parses allowed roots using the platform delimiter', () => {
+    const roots = [faker.system.directoryPath(), faker.system.directoryPath()];
     const config = loadConfig({
-      ALLOWED_REPO_ROOTS: ['/a', '/b'].join(delimiter),
+      ALLOWED_REPO_ROOTS: roots.join(delimiter),
     });
-    expect(config.allowedRepoRoots).toEqual(['/a', '/b']);
+    expect(config.allowedRepoRoots).toEqual(roots);
   });
 
   it('rejects a non-loopback host without explicit opt-in', () => {
@@ -38,11 +44,12 @@ describe('loadConfig', () => {
   });
 
   it('accepts a non-loopback host with explicit opt-in', () => {
+    const host = faker.internet.ipv4();
     const config = loadConfig({
-      API_HOST: '0.0.0.0',
+      API_HOST: host,
       API_ALLOW_NON_LOOPBACK: 'true',
     });
-    expect(config.api.host).toBe('0.0.0.0');
+    expect(config.api.host).toBe(host);
   });
 
   it.each(['0', '70000', 'abc'])('rejects invalid port %s', (port) => {
@@ -56,13 +63,16 @@ describe('loadConfig', () => {
   });
 
   it('does not leak values in error messages', () => {
-    const secret = 'postgres-password-canary';
-    expect.assertions(2);
-    try {
-      loadConfig({ DATABASE_URL: secret });
-    } catch (error) {
-      expect(error).toBeInstanceOf(ConfigError);
-      expect((error as Error).message).not.toContain(secret);
-    }
+    const failure = (): unknown => {
+      try {
+        loadConfig({ DATABASE_URL: CANARY_DB_PASSWORD });
+      } catch (error) {
+        return error;
+      }
+      return undefined;
+    };
+    const error = failure();
+    expect(error).toBeInstanceOf(ConfigError);
+    assertNotLeaked((error as Error).message, CANARY_DB_PASSWORD);
   });
 });

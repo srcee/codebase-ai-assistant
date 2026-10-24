@@ -1,14 +1,11 @@
-import {
-  mkdirSync,
-  mkdtempSync,
-  realpathSync,
-  rmSync,
-  symlinkSync,
-  writeFileSync,
-} from 'node:fs';
-import { tmpdir } from 'node:os';
+﻿import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { delimiter, join, sep } from 'node:path';
-import { loadConfig } from '@codebase-ai/server-config';
+import {
+  linkDirectory,
+  makeGitRepository,
+  createSandbox,
+  testConfig,
+} from '@codebase-ai/server-testing';
 import { PathPolicyService } from './path-policy.service';
 import { PathRejectedError } from '../errors/path-rejected.error';
 import type { PathRejectionReason } from '../types/path-rejection-reason';
@@ -16,14 +13,11 @@ import type { PathRejectionReason } from '../types/path-rejection-reason';
 const itOnWindows = process.platform === 'win32' ? it : it.skip;
 
 describe('PathPolicyService', () => {
-  let sandbox: string;
-  let root: string;
-  let outside: string;
+  const box = createSandbox('caa-path-policy-');
+  const { path: sandbox, root, outside } = box;
 
   const policy = (env: Record<string, string> = {}) =>
-    new PathPolicyService(
-      loadConfig({ ALLOWED_REPO_ROOTS: root, ...env } as NodeJS.ProcessEnv),
-    );
+    new PathPolicyService(testConfig({ ALLOWED_REPO_ROOTS: root, ...env }));
 
   async function rejection(
     service: PathPolicyService,
@@ -46,38 +40,23 @@ describe('PathPolicyService', () => {
     expect((await rejection(service, input)).reason).toBe(reason);
   }
 
-  // Directory symlinks need elevation on Windows; junctions do not and are ignored elsewhere.
-  const link = (target: string, path: string) =>
-    symlinkSync(target, path, 'junction');
-
   beforeAll(() => {
-    sandbox = realpathSync.native(
-      mkdtempSync(join(tmpdir(), 'caa-path-policy-')),
-    );
-    root = join(sandbox, 'root');
-    outside = join(sandbox, 'outside');
-    for (const dir of [
-      join(root, 'repo', '.git'),
-      join(root, 'nested', 'deep', '.git'),
-      join(root, 'plain'),
-      join(root, 'with-linked-git'),
-      join(outside, 'secret', '.git'),
-      join(sandbox, 'root-evil', '.git'),
-    ]) {
-      mkdirSync(dir, { recursive: true });
-    }
+    makeGitRepository(root, 'repo');
+    makeGitRepository(join(root, 'nested'), 'deep');
+    mkdirSync(join(root, 'plain'), { recursive: true });
+    mkdirSync(join(root, 'with-linked-git'), { recursive: true });
+    makeGitRepository(outside, 'secret');
+    makeGitRepository(sandbox, 'root-evil');
     writeFileSync(join(root, 'file.txt'), 'synthetic');
-    link(join(outside, 'secret'), join(root, 'escape'));
-    link(join(root, 'repo'), join(root, 'alias'));
-    link(
+    linkDirectory(join(outside, 'secret'), join(root, 'escape'));
+    linkDirectory(join(root, 'repo'), join(root, 'alias'));
+    linkDirectory(
       join(outside, 'secret', '.git'),
       join(root, 'with-linked-git', '.git'),
     );
   });
 
-  afterAll(() => {
-    rmSync(sandbox, { recursive: true, force: true });
-  });
+  afterAll(() => box.dispose());
 
   it('accepts a git repository inside an allowed root', async () => {
     await expect(policy().resolve(join(root, 'repo'))).resolves.toEqual({

@@ -8,6 +8,7 @@
     "start:web": "nx serve web",
     "lint": "nx run-many -t lint",
     "test": "nx run-many -t test",
+    "test:coverage": "nx run-many -t test --coverage",
     "build": "nx run-many -t build",
     "check": "nx run-many -t lint test build",
     "format": "prettier --write .",
@@ -30,6 +31,7 @@
   "private": true,
   "devDependencies": {
     "@eslint/js": "9.39.5",
+    "@faker-js/faker": "10.6.0",
     "@nestjs/schematics": "11.1.0",
     "@nestjs/testing": "11.2.7",
     "@nx/eslint": "23.3.0",
@@ -66,6 +68,7 @@
     "eslint-plugin-jsx-a11y": "6.10.1",
     "eslint-plugin-react": "7.37.5",
     "eslint-plugin-react-hooks": "5.0.0",
+    "fishery": "2.4.0",
     "husky": "9.1.7",
     "jest": "30.3.0",
     "jest-environment-node": "30.3.0",

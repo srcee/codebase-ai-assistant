@@ -39,6 +39,35 @@ export default [
     },
   },
   {
+    files: ['**/*.ts', '**/*.tsx'],
+    ignores: [
+      '**/*.spec.ts',
+      '**/*.spec.tsx',
+      '**/*.test.ts',
+      '**/*.test.tsx',
+      '**/testing/**',
+    ],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                'fishery',
+                '@faker-js/*',
+                '@codebase-ai/*-testing',
+                '@codebase-ai/server-database/testing',
+              ],
+              message:
+                'Test factories and helpers may only be imported from spec files and testing folders.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: [
       '**/*.ts',
       '**/*.tsx',
