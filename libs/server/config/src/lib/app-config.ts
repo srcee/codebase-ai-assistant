@@ -8,6 +8,11 @@ const booleanFlag = z
   .default('false')
   .transform((value) => value === 'true');
 
+const enabledByDefaultFlag = z
+  .enum(['true', 'false'])
+  .default('true')
+  .transform((value) => value === 'true');
+
 const envSchema = z
   .object({
     API_HOST: z.string().min(1).default('127.0.0.1'),
@@ -18,6 +23,7 @@ const envSchema = z
       .string()
       .default('')
       .transform((value) => value.split(delimiter).filter(Boolean)),
+    REPO_REQUIRE_GIT_DIR: enabledByDefaultFlag,
     INFERENCE_BASE_URL: z.url().default('http://127.0.0.1:11434'),
     EMBEDDING_MODEL: z.string().min(1).optional(),
     CHAT_MODEL: z.string().min(1).optional(),
@@ -38,6 +44,7 @@ export interface AppConfig {
   api: { host: string; port: number; allowNonLoopback: boolean };
   databaseUrl?: string;
   allowedRepoRoots: string[];
+  requireGitDirectory: boolean;
   inference: {
     baseUrl: string;
     embeddingModel?: string;
@@ -79,6 +86,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     },
     databaseUrl: e.DATABASE_URL,
     allowedRepoRoots: e.ALLOWED_REPO_ROOTS,
+    requireGitDirectory: e.REPO_REQUIRE_GIT_DIR,
     inference: {
       baseUrl: e.INFERENCE_BASE_URL,
       embeddingModel: e.EMBEDDING_MODEL,

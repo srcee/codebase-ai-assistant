@@ -60,6 +60,16 @@ describe('API', () => {
     });
   });
 
+  it('GET /repositories returns 503 when no database is configured', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/repositories')
+      .expect(503);
+    expect(response.body).toEqual({
+      statusCode: 503,
+      message: 'DATABASE_URL is not configured',
+    });
+  });
+
   it('accepts a valid body', async () => {
     await request(app.getHttpServer())
       .post('/test/echo')
