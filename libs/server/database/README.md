@@ -2,7 +2,7 @@
 
 PostgreSQL + pgvector access for the API, using Drizzle ORM. See `docs/decisions/0001-data-access.md`.
 
-- `src/lib/schema/`: tables (one file each), constraints, and indexes.
+- `src/lib/schema/`: one folder per table (`columns.ts`, `constraints.ts`, `indexes.ts` when needed, `table.ts`), plus `shared/` for common columns.
 - `src/lib/connection/`: `createDatabase()` and `runMigrations()`.
 - `src/lib/nest/`: `DatabaseModule` / `DatabaseService` (NestJS connection and the `/health` check).
 - `migrations/`: generated SQL (`npm run db:generate`); do not hand-edit applied files.
