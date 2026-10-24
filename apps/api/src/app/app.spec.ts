@@ -2,7 +2,9 @@ import { Body, Controller, INestApplication, Post } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { IsString } from 'class-validator';
 import request from 'supertest';
+import type { DatabaseHealth } from '@codebase-ai/contracts';
 import { APP_CONFIG, loadConfig } from '@codebase-ai/server-config';
+import { DatabaseService } from '@codebase-ai/server-database';
 import { AppModule } from './app.module';
 import { configureApp } from './configure-app';
 
@@ -44,11 +46,18 @@ describe('API', () => {
     await app.close();
   });
 
-  it('GET /health returns ok', async () => {
-    await request(app.getHttpServer())
+  it('GET /health is degraded when no database is configured', async () => {
+    const response = await request(app.getHttpServer())
       .get('/health')
-      .expect(200)
-      .expect({ status: 'ok' });
+      .expect(503);
+    expect(response.body).toEqual({
+      status: 'degraded',
+      database: {
+        status: 'unconfigured',
+        vectorExtension: false,
+        embeddingDimensions: null,
+      },
+    });
   });
 
   it('accepts a valid body', async () => {
@@ -78,6 +87,76 @@ describe('API', () => {
       .expect(500);
     expect(JSON.stringify(response.body)).not.toContain('canary-secret');
   });
+});
+
+describe('health with a database', () => {
+  async function healthApp(database: DatabaseHealth) {
+    const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(APP_CONFIG)
+      .useValue(loadConfig({}))
+      .overrideProvider(DatabaseService)
+      .useValue({ checkHealth: async () => database })
+      .compile();
+    const nestApp = moduleRef.createNestApplication();
+    configureApp(nestApp);
+    await nestApp.init();
+    return nestApp;
+  }
+
+  it('returns ok when the database and vector column are ready', async () => {
+    const nestApp = await healthApp({
+      status: 'up',
+      vectorExtension: true,
+      embeddingDimensions: 768,
+    });
+    try {
+      await request(nestApp.getHttpServer())
+        .get('/health')
+        .expect(200)
+        .expect({
+          status: 'ok',
+          database: {
+            status: 'up',
+            vectorExtension: true,
+            embeddingDimensions: 768,
+          },
+        });
+    } finally {
+      await nestApp.close();
+    }
+  });
+
+  it.each([
+    [
+      'the vector extension is missing',
+      { status: 'up', vectorExtension: false, embeddingDimensions: 768 },
+    ],
+    [
+      'the schema is not migrated',
+      { status: 'up', vectorExtension: true, embeddingDimensions: null },
+    ],
+    [
+      'the column dimension differs from config',
+      { status: 'up', vectorExtension: true, embeddingDimensions: 1024 },
+    ],
+    [
+      'the database is down',
+      { status: 'down', vectorExtension: false, embeddingDimensions: null },
+    ],
+  ] as [string, DatabaseHealth][])(
+    'returns 503 when %s',
+    async (_name, database) => {
+      const nestApp = await healthApp(database);
+      try {
+        const response = await request(nestApp.getHttpServer())
+          .get('/health')
+          .expect(503);
+        expect(response.body.status).toBe('degraded');
+      } finally {
+        await nestApp.close();
+      }
+    },
+  );
 });
 
 describe('startup configuration', () => {
