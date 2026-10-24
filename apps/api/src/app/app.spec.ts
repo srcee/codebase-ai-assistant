@@ -60,9 +60,9 @@ describe('API', () => {
     });
   });
 
-  it('GET /repositories returns 503 when no database is configured', async () => {
+  it('GET /codebases returns 503 when no database is configured', async () => {
     const response = await request(app.getHttpServer())
-      .get('/repositories')
+      .get('/codebases')
       .expect(503);
     expect(response.body).toEqual({
       statusCode: 503,

@@ -1,4 +1,4 @@
-import type { PathRejectionReason } from './path-rejection-reason';
+import type { PathRejectionReason } from '../types/path-rejection-reason';
 
 // A missing path and one outside the roots share a message so callers cannot probe the filesystem.
 const ROOT_OR_MISSING =

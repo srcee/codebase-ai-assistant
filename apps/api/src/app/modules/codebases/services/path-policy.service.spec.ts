@@ -10,8 +10,8 @@ import { tmpdir } from 'node:os';
 import { delimiter, join, sep } from 'node:path';
 import { loadConfig } from '@codebase-ai/server-config';
 import { PathPolicyService } from './path-policy.service';
-import { PathRejectedError } from './path-rejected.error';
-import type { PathRejectionReason } from './path-rejection-reason';
+import { PathRejectedError } from '../errors/path-rejected.error';
+import type { PathRejectionReason } from '../types/path-rejection-reason';
 
 const itOnWindows = process.platform === 'win32' ? it : it.skip;
 

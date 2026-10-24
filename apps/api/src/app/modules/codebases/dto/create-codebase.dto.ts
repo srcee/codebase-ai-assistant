@@ -6,9 +6,9 @@ import {
   Matches,
   MaxLength,
 } from 'class-validator';
-import type { CreateRepositoryRequest } from '@codebase-ai/contracts';
+import type { CreateCodebaseRequest } from '@codebase-ai/contracts';
 
-export class CreateRepositoryDto implements CreateRepositoryRequest {
+export class CreateCodebaseDto implements CreateCodebaseRequest {
   @IsString()
   @IsNotEmpty()
   @MaxLength(4096)

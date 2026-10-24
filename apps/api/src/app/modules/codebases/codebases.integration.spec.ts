@@ -12,7 +12,7 @@ import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { Pool } from 'pg';
 import request from 'supertest';
-import type { RepositoryResponse } from '@codebase-ai/contracts';
+import type { CodebaseResponse } from '@codebase-ai/contracts';
 import { APP_CONFIG, loadConfig } from '@codebase-ai/server-config';
 import {
   createDatabase,
@@ -21,8 +21,8 @@ import {
   runMigrations,
   schema,
 } from '@codebase-ai/server-database';
-import { AppModule } from '../app.module';
-import { configureApp } from '../configure-app';
+import { AppModule } from '../../app.module';
+import { configureApp } from '../../configure-app';
 
 const envFile = join(__dirname, '..', '..', '..', '..', '..', '.env');
 if (existsSync(envFile)) process.loadEnvFile(envFile);
@@ -72,7 +72,7 @@ async function prepareDedicatedDatabase(connectionString: string) {
   return { handle, dedicatedUrl };
 }
 
-describeDb('repositories API', () => {
+describeDb('codebases API', () => {
   let app: INestApplication;
   let handle: DatabaseHandle;
   let sandbox: string;
@@ -81,10 +81,10 @@ describeDb('repositories API', () => {
 
   const server = () => app.getHttpServer();
   const register = (body: object) =>
-    request(server()).post('/repositories').send(body);
-  const registerRepo = async (name: string): Promise<RepositoryResponse> =>
+    request(server()).post('/codebases').send(body);
+  const registerCodebase = async (name: string): Promise<CodebaseResponse> =>
     (await register({ path: join(root, name) }).expect(201))
-      .body as RepositoryResponse;
+      .body as CodebaseResponse;
 
   const makeRepository = (parent: string, name: string) =>
     mkdirSync(join(parent, name, '.git'), { recursive: true });
@@ -127,7 +127,7 @@ describeDb('repositories API', () => {
   });
 
   describe('register, list, get, delete', () => {
-    it('registers a repository and returns display data only', async () => {
+    it('registers a codebase and returns display data only', async () => {
       const response = await register({ path: join(root, 'alpha') }).expect(
         201,
       );
@@ -145,73 +145,73 @@ describeDb('repositories API', () => {
     it('uses the requested name, trimmed', async () => {
       const response = await register({
         path: join(root, 'alpha'),
-        name: '  My Repo  ',
+        name: '  My Codebase  ',
       }).expect(201);
-      expect(response.body.name).toBe('My Repo');
+      expect(response.body.name).toBe('My Codebase');
     });
 
-    it('lists registered repositories ordered by name', async () => {
-      await registerRepo('gamma');
-      await registerRepo('alpha');
-      const response = await request(server()).get('/repositories').expect(200);
+    it('lists registered codebases ordered by name', async () => {
+      await registerCodebase('gamma');
+      await registerCodebase('alpha');
+      const response = await request(server()).get('/codebases').expect(200);
       expect(
-        (response.body as RepositoryResponse[]).map((item) => item.name),
+        (response.body as CodebaseResponse[]).map((item) => item.name),
       ).toEqual(['alpha', 'gamma']);
     });
 
-    it('lists nothing when no repositories are registered', async () => {
-      await request(server()).get('/repositories').expect(200).expect([]);
+    it('lists nothing when no codebases are registered', async () => {
+      await request(server()).get('/codebases').expect(200).expect([]);
     });
 
-    it('gets a repository by id', async () => {
-      const created = await registerRepo('beta');
+    it('gets a codebase by id', async () => {
+      const created = await registerCodebase('beta');
       const response = await request(server())
-        .get(`/repositories/${created.id}`)
+        .get(`/codebases/${created.id}`)
         .expect(200);
       expect(response.body).toEqual(created);
     });
 
-    it('deletes a repository', async () => {
-      const created = await registerRepo('beta');
-      await request(server()).delete(`/repositories/${created.id}`).expect(204);
-      await request(server()).get(`/repositories/${created.id}`).expect(404);
-      await request(server()).get('/repositories').expect(200).expect([]);
+    it('deletes a codebase', async () => {
+      const created = await registerCodebase('beta');
+      await request(server()).delete(`/codebases/${created.id}`).expect(204);
+      await request(server()).get(`/codebases/${created.id}`).expect(404);
+      await request(server()).get('/codebases').expect(200).expect([]);
     });
 
     it('returns 404 for an unknown id', async () => {
       const unknown = '00000000-0000-4000-8000-000000000000';
-      await request(server()).get(`/repositories/${unknown}`).expect(404);
-      await request(server()).delete(`/repositories/${unknown}`).expect(404);
+      await request(server()).get(`/codebases/${unknown}`).expect(404);
+      await request(server()).delete(`/codebases/${unknown}`).expect(404);
     });
 
     it('returns 400 for a malformed id', async () => {
-      await request(server()).get('/repositories/not-a-uuid').expect(400);
-      await request(server()).delete('/repositories/not-a-uuid').expect(400);
+      await request(server()).get('/codebases/not-a-uuid').expect(400);
+      await request(server()).delete('/codebases/not-a-uuid').expect(400);
     });
   });
 
   describe('duplicates', () => {
     it('returns 409 for the same path', async () => {
-      await registerRepo('alpha');
+      await registerCodebase('alpha');
       await register({ path: join(root, 'alpha') }).expect(409);
     });
 
     it('returns 409 when a link resolves to a registered path', async () => {
-      await registerRepo('alpha');
+      await registerCodebase('alpha');
       await register({ path: join(root, 'alpha-alias') }).expect(409);
-      const list = await request(server()).get('/repositories').expect(200);
+      const list = await request(server()).get('/codebases').expect(200);
       expect(list.body).toHaveLength(1);
     });
 
     it('returns 409 for a trailing-separator variant', async () => {
-      await registerRepo('alpha');
+      await registerCodebase('alpha');
       await register({ path: `${join(root, 'alpha')}/` }).expect(409);
     });
 
     it('allows the same path again after deletion', async () => {
-      const created = await registerRepo('alpha');
-      await request(server()).delete(`/repositories/${created.id}`).expect(204);
-      await registerRepo('alpha');
+      const created = await registerCodebase('alpha');
+      await request(server()).delete(`/codebases/${created.id}`).expect(204);
+      await registerCodebase('alpha');
     });
   });
 
@@ -231,7 +231,7 @@ describeDb('repositories API', () => {
 
     it('does not store anything for rejected requests', async () => {
       await register({ path: join(root, 'alpha'), extra: true }).expect(400);
-      await request(server()).get('/repositories').expect(200).expect([]);
+      await request(server()).get('/codebases').expect(200).expect([]);
     });
   });
 
@@ -251,18 +251,18 @@ describeDb('repositories API', () => {
       expect(body).not.toContain(sandbox);
       expect(body).not.toContain('secret');
       expect(body).not.toContain('server');
-      await request(server()).get('/repositories').expect(200).expect([]);
+      await request(server()).get('/codebases').expect(200).expect([]);
     });
 
     it('never exposes absolute paths in any response', async () => {
-      const created = await registerRepo('alpha');
+      const created = await registerCodebase('alpha');
       const responses = [
         JSON.stringify(created),
         JSON.stringify(
-          (await request(server()).get('/repositories').expect(200)).body,
+          (await request(server()).get('/codebases').expect(200)).body,
         ),
         JSON.stringify(
-          (await request(server()).get(`/repositories/${created.id}`)).body,
+          (await request(server()).get(`/codebases/${created.id}`)).body,
         ),
       ];
       for (const body of responses) {
@@ -274,8 +274,8 @@ describeDb('repositories API', () => {
   });
 
   describe('deletion cascade', () => {
-    it('removes files, chunks, and jobs with the repository', async () => {
-      const created = await registerRepo('alpha');
+    it('removes files, chunks, and jobs with the codebase', async () => {
+      const created = await registerCodebase('alpha');
       const [file] = await handle.db
         .insert(schema.repositoryFiles)
         .values({
@@ -302,7 +302,7 @@ describeDb('repositories API', () => {
         chunkingVersion: '1',
       });
 
-      await request(server()).delete(`/repositories/${created.id}`).expect(204);
+      await request(server()).delete(`/codebases/${created.id}`).expect(204);
 
       const count = async (table: string) =>
         (
@@ -315,14 +315,14 @@ describeDb('repositories API', () => {
       expect(await count('index_jobs')).toBe(0);
     });
 
-    it('keeps other repositories intact', async () => {
-      const first = await registerRepo('alpha');
-      const second = await registerRepo('beta');
+    it('keeps other codebases intact', async () => {
+      const first = await registerCodebase('alpha');
+      const second = await registerCodebase('beta');
       await handle.db
         .insert(schema.indexJobs)
         .values([{ repositoryId: first.id }, { repositoryId: second.id }]);
 
-      await request(server()).delete(`/repositories/${first.id}`).expect(204);
+      await request(server()).delete(`/codebases/${first.id}`).expect(204);
 
       const { rows } = await handle.pool.query<{ repository_id: string }>(
         'select repository_id from index_jobs',

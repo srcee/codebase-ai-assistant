@@ -7,15 +7,15 @@ import {
   hasTraversalSegment,
   isLocalAbsolutePath,
   normalizeCanonicalPath,
-} from './normalize-path';
-import { PathRejectedError } from './path-rejected.error';
-import { relativeToAnyRoot } from './relative-within';
+} from '../utils/normalize-path';
+import { PathRejectedError } from '../errors/path-rejected.error';
+import { relativeToAnyRoot } from '../utils/relative-within';
 
 const realpathNative = promisify(realpath.native);
 const statPath = promisify(stat);
 const lstatPath = promisify(lstat);
 
-export interface ResolvedRepositoryPath {
+export interface ResolvedCodebasePath {
   canonicalPath: string;
   /** Forward-slash path relative to the matching allowed root. */
   relativePath: string;
@@ -37,7 +37,7 @@ export class PathPolicyService {
     return roots.filter((root): root is string => root !== undefined);
   }
 
-  async resolve(input: string): Promise<ResolvedRepositoryPath> {
+  async resolve(input: string): Promise<ResolvedCodebasePath> {
     if (!isLocalAbsolutePath(input) || hasTraversalSegment(input)) {
       throw new PathRejectedError('invalid-path');
     }
