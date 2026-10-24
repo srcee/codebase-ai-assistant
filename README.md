@@ -30,16 +30,17 @@ npm run start:api      # http://127.0.0.1:3000/health
 npm run start:web      # http://localhost:4200, proxies /api to the API
 ```
 
-| Command           | Purpose                                              |
-| ----------------- | ---------------------------------------------------- |
-| `npm run lint`    | ESLint, including Nx module-boundary rules           |
-| `npm run test`    | Unit and API tests (Jest for server, Vitest for web) |
-| `npm run build`   | Build all projects                                   |
-| `npm run check`   | Lint, test, and build                                |
-| `npm run format`  | Prettier                                             |
-| `npm run secrets` | Secret scan of the working tree (secretlint)         |
+| Command                 | Purpose                                                  |
+| ----------------------- | -------------------------------------------------------- |
+| `npm run lint`          | ESLint, including Nx module-boundary rules               |
+| `npm run test`          | Unit and API tests (Jest for server, Vitest for web)     |
+| `npm run test:coverage` | Tests with coverage thresholds (needs the test database) |
+| `npm run build`         | Build all projects                                       |
+| `npm run check`         | Lint, test, and build                                    |
+| `npm run format`        | Prettier                                                 |
+| `npm run secrets`       | Secret scan of the working tree (secretlint)             |
 
-A pre-commit hook runs the secret scan and Prettier on staged files.
+A pre-commit hook runs the secret scan and Prettier on staged files, then `npm run test:coverage`. The commit is rejected if any project is below its coverage threshold, so start the test database first (`npm run db:test:up`).
 
 ### Database
 
@@ -60,6 +61,7 @@ Integration tests use `TEST_DATABASE_URL` and are skipped when it is unset. They
 - `apps/api`: NestJS API (global validation rejects unknown fields; unexpected errors return a generic 500). Feature modules live here, for example `src/app/repositories` (path policy and `/repositories` endpoints).
 - `apps/web`: React + Vite UI.
 - `libs/shared/contracts`: DTO types shared with the frontend (`scope:shared`).
+- `libs/shared/testing`, `libs/server/testing`, `libs/server/database/src/testing`: test-only factories (fishery + faker), canary secrets, sandbox and database helpers. See [decision 0003](docs/decisions/0003-test-data-factories.md).
 - `libs/server/config`: validated environment configuration (`scope:server`).
 - `libs/server/database`: Drizzle schema, migrations, and the NestJS connection module (`scope:server`).
 

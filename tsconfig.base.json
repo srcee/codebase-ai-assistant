@@ -18,7 +18,12 @@
     "paths": {
       "@codebase-ai/contracts": ["./libs/shared/contracts/src/index.ts"],
       "@codebase-ai/server-config": ["./libs/server/config/src/index.ts"],
-      "@codebase-ai/server-database": ["./libs/server/database/src/index.ts"]
+      "@codebase-ai/server-database": ["./libs/server/database/src/index.ts"],
+      "@codebase-ai/server-database/testing": [
+        "./libs/server/database/src/testing/index.ts"
+      ],
+      "@codebase-ai/server-testing": ["./libs/server/testing/src/index.ts"],
+      "@codebase-ai/shared-testing": ["./libs/shared/testing/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]

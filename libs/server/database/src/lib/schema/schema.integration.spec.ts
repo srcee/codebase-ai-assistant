@@ -1,7 +1,18 @@
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
 import { eq, sql } from 'drizzle-orm';
 import { loadConfig } from '@codebase-ai/server-config';
+import { databaseHealthFactory, faker } from '@codebase-ai/shared-testing';
+import {
+  assertDisposableDatabase,
+  type CodeChunkInsert,
+  codeChunkFactory,
+  describeWithDatabase,
+  indexJobFactory,
+  type RepositoryFileInsert,
+  repositoryFactory,
+  repositoryFileFactory,
+  resetSchema,
+  unitVector,
+} from '../../testing';
 import {
   createDatabase,
   type DatabaseHandle,
@@ -15,30 +26,6 @@ import {
   repositories,
   repositoryFiles,
 } from '.';
-
-const envFile = join(__dirname, '..', '..', '..', '..', '..', '..', '.env');
-if (existsSync(envFile)) process.loadEnvFile(envFile);
-
-const url = process.env['TEST_DATABASE_URL'];
-if (!url) {
-  console.warn(
-    'TEST_DATABASE_URL is not set; skipping database integration tests.',
-  );
-}
-const describeDb = url ? describe : describe.skip;
-
-// The suite drops the public schema, so refuse anything that is not clearly disposable.
-function assertDisposable(connectionString: string): void {
-  const name = new URL(connectionString).pathname.slice(1);
-  if (!name.endsWith('_test')) {
-    throw new Error(
-      'TEST_DATABASE_URL must point at a database whose name ends in _test',
-    );
-  }
-}
-
-const unitVector = (dimensions = EMBEDDING_DIMENSIONS) =>
-  Array.from({ length: dimensions }, (_, i) => (i === 0 ? 1 : 0));
 
 /** Drizzle wraps driver errors; the Postgres details live on `cause`. */
 async function failure(
@@ -58,57 +45,36 @@ type CountedTable =
   | typeof codeChunks
   | typeof indexJobs;
 
-describeDb('database schema', () => {
+describeWithDatabase('database schema', (url) => {
   let handle: DatabaseHandle;
 
   const count = async (table: CountedTable) =>
     (await handle.db.select({ n: sql<number>`count(*)::int` }).from(table))[0]
       .n;
 
-  const chunkValues = (
-    repositoryId: string,
-    fileId: string,
-    overrides: Partial<typeof codeChunks.$inferInsert> = {},
-  ): typeof codeChunks.$inferInsert => ({
-    repositoryId,
-    fileId,
-    chunkHash: 'chunk-hash',
-    symbolName: 'parseConfig',
-    startLine: 1,
-    endLine: 3,
-    content: 'export function parseConfig() {}',
-    embedding: unitVector(),
-    embeddingModel: 'test-model',
-    chunkingVersion: '1',
-    ...overrides,
-  });
+  const create = () => ({ transient: { db: handle.db } });
 
-  async function seed() {
-    const [repo] = await handle.db
-      .insert(repositories)
-      .values({ name: 'repo', canonicalPath: `/synthetic/${Math.random()}` })
-      .returning();
-    const [file] = await handle.db
-      .insert(repositoryFiles)
-      .values({
-        repositoryId: repo.id,
-        relativePath: 'src/a.ts',
-        contentHash: 'file-hash',
-        sizeBytes: 10,
-        status: 'indexed',
-      })
-      .returning();
-    await handle.db.insert(indexJobs).values({ repositoryId: repo.id });
-    await handle.db.insert(codeChunks).values(chunkValues(repo.id, file.id));
-    return { repo, file };
+  async function seed(
+    file: Partial<RepositoryFileInsert> = {},
+    chunk: Partial<CodeChunkInsert> = {},
+  ) {
+    const repo = await repositoryFactory.create({}, create());
+    const savedFile = await repositoryFileFactory.create(
+      { repositoryId: repo.id, ...file },
+      create(),
+    );
+    await indexJobFactory.create({ repositoryId: repo.id }, create());
+    const savedChunk = await codeChunkFactory.create(
+      { repositoryId: repo.id, fileId: savedFile.id, ...chunk },
+      create(),
+    );
+    return { repo, file: savedFile, chunk: savedChunk };
   }
 
   beforeAll(async () => {
-    assertDisposable(url as string);
-    handle = createDatabase(url as string);
-    await handle.pool.query('drop schema if exists public cascade');
-    await handle.pool.query('drop schema if exists drizzle cascade');
-    await handle.pool.query('create schema public');
+    assertDisposableDatabase(url);
+    handle = createDatabase(url);
+    await resetSchema(handle);
   });
 
   afterEach(async () => {
@@ -146,11 +112,11 @@ describeDb('database schema', () => {
   it('reports a healthy database through the service', async () => {
     const service = new DatabaseService(loadConfig({ DATABASE_URL: url }));
     try {
-      await expect(service.checkHealth()).resolves.toEqual({
-        status: 'up',
-        vectorExtension: true,
-        embeddingDimensions: EMBEDDING_DIMENSIONS,
-      });
+      await expect(service.checkHealth()).resolves.toEqual(
+        databaseHealthFactory.build({
+          embeddingDimensions: EMBEDDING_DIMENSIONS,
+        }),
+      );
     } finally {
       await service.onApplicationShutdown();
     }
@@ -174,31 +140,34 @@ describeDb('database schema', () => {
   });
 
   it('enforces unique relative paths per repository', async () => {
-    const { repo } = await seed();
+    const { repo, file } = await seed();
     const error = await failure(
-      handle.db.insert(repositoryFiles).values({
-        repositoryId: repo.id,
-        relativePath: 'src/a.ts',
-        contentHash: 'other',
-        sizeBytes: 1,
-        status: 'indexed',
-      }),
+      repositoryFileFactory.create(
+        { repositoryId: repo.id, relativePath: file.relativePath },
+        create(),
+      ),
     );
     expect(error.code).toBe('23505');
   });
 
   it('allows the same relative path in different repositories', async () => {
-    const first = await seed();
-    const second = await seed();
+    const relativePath = `src/${faker.word.noun()}.ts`;
+    const first = await seed({ relativePath });
+    const second = await seed({ relativePath });
     expect(first.file.relativePath).toBe(second.file.relativePath);
   });
 
   it('rejects a vector with the wrong dimension', async () => {
     const { repo, file } = await seed();
     const error = await failure(
-      handle.db
-        .insert(codeChunks)
-        .values(chunkValues(repo.id, file.id, { embedding: unitVector(3) })),
+      codeChunkFactory.create(
+        {
+          repositoryId: repo.id,
+          fileId: file.id,
+          embedding: unitVector(3),
+        },
+        create(),
+      ),
     );
     expect(error.message).toMatch(/expected 768 dimensions, not 3/);
   });
@@ -207,25 +176,36 @@ describeDb('database schema', () => {
     const a = await seed();
     const b = await seed();
     const error = await failure(
-      handle.db.insert(codeChunks).values(chunkValues(b.repo.id, a.file.id)),
+      codeChunkFactory.create(
+        { repositoryId: b.repo.id, fileId: a.file.id },
+        create(),
+      ),
     );
     expect(error.code).toBe('23503');
   });
 
   it('rejects invalid line ranges', async () => {
     const { repo, file } = await seed();
+    const startLine = faker.number.int({ min: 2, max: 100 });
     const error = await failure(
-      handle.db
-        .insert(codeChunks)
-        .values(chunkValues(repo.id, file.id, { startLine: 5, endLine: 2 })),
+      codeChunkFactory.create(
+        {
+          repositoryId: repo.id,
+          fileId: file.id,
+          startLine,
+          endLine: startLine - 1,
+        },
+        create(),
+      ),
     );
     expect(error.code).toBe('23514');
   });
 
   it('populates the full-text column from symbol name and content', async () => {
-    await seed();
+    const { chunk } = await seed();
     const { rows } = await handle.pool.query(
-      `select 1 from code_chunks where search_vector @@ to_tsquery('simple', 'parseconfig')`,
+      `select 1 from code_chunks where search_vector @@ to_tsquery('simple', $1)`,
+      [chunk.symbolName?.toLowerCase()],
     );
     expect(rows).toHaveLength(1);
   });

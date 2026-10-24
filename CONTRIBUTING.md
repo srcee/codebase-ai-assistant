@@ -23,6 +23,7 @@ Example: `feat(repositories): reject symlinks escaping the allowed root`
 
 - Never commit `.env` files, keys, credentials, or real repository content. Commit `.env.example` only.
 - Fixtures must be synthetic and free of real secrets.
+- Build test data with the fishery factories and `faker` from the testing libraries; do not hand-write fixture objects in specs. Faker is unseeded, so assert on the values a factory returned, never on literal faker output.
 - Do not log source code, embeddings, secrets, full prompts, or raw request payloads.
 - Preserve the V1 local-only privacy invariant; no hosted AI providers or telemetry.
 - Add tests for security and privacy behavior alongside the feature.

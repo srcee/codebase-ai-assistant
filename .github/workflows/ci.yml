@@ -35,5 +35,17 @@ jobs:
       - run: npm run format:check
       - run: npm run secrets
       - run: npm run lint
-      - run: npm run test
+      - run: npm run test:coverage
       - run: npm run build
+
+  unit-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # No Postgres service here: database suites skip, and the Windows-only path tests run.
+      - run: npm run test
