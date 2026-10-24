@@ -21,7 +21,7 @@ const envSchema = z
     INFERENCE_BASE_URL: z.url().default('http://127.0.0.1:11434'),
     EMBEDDING_MODEL: z.string().min(1).optional(),
     CHAT_MODEL: z.string().min(1).optional(),
-    EMBEDDING_DIMENSIONS: z.coerce.number().int().positive().optional(),
+    EMBEDDING_DIMENSIONS: z.coerce.number().int().positive().default(768),
   })
   .superRefine((env, ctx) => {
     if (!env.API_ALLOW_NON_LOOPBACK && !LOOPBACK_HOSTS.has(env.API_HOST)) {
@@ -42,7 +42,7 @@ export interface AppConfig {
     baseUrl: string;
     embeddingModel?: string;
     chatModel?: string;
-    embeddingDimensions?: number;
+    embeddingDimensions: number;
   };
 }
 

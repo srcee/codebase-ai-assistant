@@ -17,7 +17,8 @@
     "types": ["node"],
     "paths": {
       "@codebase-ai/contracts": ["./libs/shared/contracts/src/index.ts"],
-      "@codebase-ai/server-config": ["./libs/server/config/src/index.ts"]
+      "@codebase-ai/server-config": ["./libs/server/config/src/index.ts"],
+      "@codebase-ai/server-database": ["./libs/server/database/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]
