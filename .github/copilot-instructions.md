@@ -1,6 +1,6 @@
 # Copilot instructions
 
-Local-first Codebase RAG Assistant. Nx monorepo: NestJS API (`apps/api`), React web (`apps/web`), `libs/server/*`, `libs/shared/*`. Stage plans live in `docs/stage-N.md`; the full context is `docs/Codebase_RAG_Assistant_Project_Context.md`.
+Local-first Codebase RAG Assistant. Nx monorepo: NestJS API (`apps/api`, feature modules in `apps/api/src/app/<feature>`), React web (`apps/web`), `libs/shared/*`, `libs/server/*` (config and database only). Stage plans live in `docs/stage-N.md`; the full context is `docs/Codebase_RAG_Assistant_Project_Context.md`.
 
 ## Privacy and security (non-negotiable)
 
@@ -17,7 +17,7 @@ Local-first Codebase RAG Assistant. Nx monorepo: NestJS API (`apps/api`), React 
 ## Scope and architecture
 
 - One vertical slice at a time, following the current `docs/stage-N.md`. Do not scaffold future stages.
-- Modular monolith: libraries are code organization, not microservices. Create a new lib only when a concrete need exists.
+- Modular monolith. Feature modules (repositories, ingestion, embeddings, retrieval, chat, and so on) live in `apps/api/src/app/<feature>`, one folder per Nest module. `libs/` is only for code shared across apps or reusable tooling (contracts, test fixtures). Create a new lib only when a concrete need exists.
 - Respect Nx module boundaries and tags (`scope:server`, `scope:shared`, `scope:web`). The web app must not import server libs. Shared API shapes go in `libs/shared/contracts`.
 - Data access is Drizzle ORM with `pg`. Use raw `sql` only for vector and hybrid queries. One Postgres database with pgvector.
 - REST API (SSE for streaming chat). No LangChain/LangGraph or other RAG frameworks.

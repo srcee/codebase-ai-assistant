@@ -21,10 +21,10 @@ import {
   runMigrations,
   schema,
 } from '@codebase-ai/server-database';
-import { AppModule } from './app.module';
-import { configureApp } from './configure-app';
+import { AppModule } from '../app.module';
+import { configureApp } from '../configure-app';
 
-const envFile = join(__dirname, '..', '..', '..', '..', '.env');
+const envFile = join(__dirname, '..', '..', '..', '..', '..', '.env');
 if (existsSync(envFile)) process.loadEnvFile(envFile);
 
 const baseUrl = process.env['TEST_DATABASE_URL'];

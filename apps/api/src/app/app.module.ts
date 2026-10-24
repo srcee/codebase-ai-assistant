@@ -1,7 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { APP_CONFIG, loadConfig } from '@codebase-ai/server-config';
 import { DatabaseModule } from '@codebase-ai/server-database';
-import { RepositoriesModule } from '@codebase-ai/server-repositories';
+import { RepositoriesModule } from './repositories/repositories.module';
 import { HealthController } from './health.controller';
 
 @Global()

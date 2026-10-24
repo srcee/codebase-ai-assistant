@@ -57,12 +57,11 @@ Integration tests use `TEST_DATABASE_URL` and are skipped when it is unset. They
 
 ### Layout
 
-- `apps/api`: NestJS API (global validation rejects unknown fields; unexpected errors return a generic 500).
+- `apps/api`: NestJS API (global validation rejects unknown fields; unexpected errors return a generic 500). Feature modules live here, for example `src/app/repositories` (path policy and `/repositories` endpoints).
 - `apps/web`: React + Vite UI.
 - `libs/shared/contracts`: DTO types shared with the frontend (`scope:shared`).
 - `libs/server/config`: validated environment configuration (`scope:server`).
 - `libs/server/database`: Drizzle schema, migrations, and the NestJS connection module (`scope:server`).
-- `libs/server/repositories`: repository path policy and `/repositories` endpoints (`scope:server`).
 
 The web app cannot import `scope:server` libraries; this is enforced by lint.
 

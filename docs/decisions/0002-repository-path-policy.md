@@ -8,7 +8,7 @@ Registering a repository gives the API read access to a directory. Paths come fr
 
 ## Decision
 
-`PathPolicyService` (`libs/server/repositories`) resolves every requested path in this order and fails closed:
+`PathPolicyService` (`apps/api/src/app/repositories/path-policy`) resolves every requested path in this order and fails closed:
 
 1. Reject input that is not an absolute local path: empty, over 4096 characters, control characters, leading `\\` or `//` (UNC, `\\?\`, `\\.\`), drive-relative or rooted forms and `:` stream syntax on Windows. Reject any `..` segment, even if it would stay inside the root.
 2. Resolve with `realpath.native`, which follows every symlink and junction and returns the true case on Windows. Normalize the result (drop `\\?\`, upper-case the drive letter, strip trailing separators). This canonical path is what is stored and what the unique constraint compares.
