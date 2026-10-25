@@ -1,0 +1,13 @@
+import { sha256Hex } from './sha256-hex';
+
+describe('sha256Hex', () => {
+  it('matches the known digest of "abc"', () => {
+    expect(sha256Hex('abc')).toBe(
+      'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
+    );
+  });
+
+  it('hashes strings and their UTF-8 bytes identically', () => {
+    expect(sha256Hex('héllo')).toBe(sha256Hex(Buffer.from('héllo')));
+  });
+});
