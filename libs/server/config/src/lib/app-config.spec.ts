@@ -75,4 +75,72 @@ describe('loadConfig', () => {
     expect(error).toBeInstanceOf(ConfigError);
     assertNotLeaked((error as Error).message, CANARY_DB_PASSWORD);
   });
+
+  describe('ingestion', () => {
+    it('uses documented defaults', () => {
+      expect(loadConfig({}).ingestion).toEqual({
+        maxFileBytes: 512 * 1024,
+        maxTotalBytes: 100 * 1024 * 1024,
+        languages: undefined,
+        excludePatterns: [],
+        chunkMaxChars: 2000,
+        chunkOverlapChars: 200,
+      });
+    });
+
+    it('parses, trims and lower-cases lists', () => {
+      const config = loadConfig({
+        INGEST_LANGUAGES: ' TypeScript, c++ ,c#,',
+        INGEST_EXCLUDE_PATTERNS: 'docs/**, *.snap',
+      });
+      expect(config.ingestion.languages).toEqual(['typescript', 'c++', 'c#']);
+      expect(config.ingestion.excludePatterns).toEqual(['docs/**', '*.snap']);
+    });
+
+    it.each(['.ts', 'type script', '../x', 'a'.repeat(33)])(
+      'rejects language list %s',
+      (value) => {
+        expect(() => loadConfig({ INGEST_LANGUAGES: value })).toThrow(
+          ConfigError,
+        );
+      },
+    );
+
+    it('rejects a list with no languages', () => {
+      expect(() => loadConfig({ INGEST_LANGUAGES: ' , ' })).toThrow(
+        ConfigError,
+      );
+    });
+
+    it('rejects an overlap that is not smaller than the chunk size', () => {
+      expect(() =>
+        loadConfig({ CHUNK_MAX_CHARS: '500', CHUNK_OVERLAP_CHARS: '500' }),
+      ).toThrow(ConfigError);
+    });
+
+    it('rejects a file limit above the total limit', () => {
+      expect(() =>
+        loadConfig({
+          INGEST_MAX_FILE_BYTES: '4096',
+          INGEST_MAX_TOTAL_BYTES: '2048',
+        }),
+      ).toThrow(ConfigError);
+    });
+
+    it.each(['0', '-1', 'abc', '10'])('rejects invalid size %s', (value) => {
+      expect(() => loadConfig({ INGEST_MAX_FILE_BYTES: value })).toThrow(
+        ConfigError,
+      );
+    });
+
+    it('does not leak pattern values in error messages', () => {
+      expect(() =>
+        loadConfig({ INGEST_LANGUAGES: `${CANARY_DB_PASSWORD}!` }),
+      ).toThrow(
+        expect.objectContaining({
+          message: expect.not.stringContaining(CANARY_DB_PASSWORD),
+        }),
+      );
+    });
+  });
 });

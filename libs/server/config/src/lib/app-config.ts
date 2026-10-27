@@ -13,6 +13,24 @@ const enabledByDefaultFlag = z
   .default('true')
   .transform((value) => value === 'true');
 
+const commaList = (value: string): string[] =>
+  value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+// Only the shape is checked here; the ingestion module rejects ids it does not know.
+const languageList = z
+  .string()
+  .transform((value) => commaList(value.toLowerCase()))
+  .pipe(
+    z
+      .array(z.string().regex(/^[a-z0-9+#-]{1,32}$/, 'must be language ids'))
+      .min(1)
+      .max(100),
+  )
+  .optional();
+
 const envSchema = z
   .object({
     API_HOST: z.string().min(1).default('127.0.0.1'),
@@ -28,6 +46,24 @@ const envSchema = z
     EMBEDDING_MODEL: z.string().min(1).optional(),
     CHAT_MODEL: z.string().min(1).optional(),
     EMBEDDING_DIMENSIONS: z.coerce.number().int().positive().default(768),
+    INGEST_MAX_FILE_BYTES: z.coerce
+      .number()
+      .int()
+      .min(1024)
+      .default(512 * 1024),
+    INGEST_MAX_TOTAL_BYTES: z.coerce
+      .number()
+      .int()
+      .min(1024)
+      .default(100 * 1024 * 1024),
+    INGEST_LANGUAGES: languageList,
+    INGEST_EXCLUDE_PATTERNS: z
+      .string()
+      .default('')
+      .transform(commaList)
+      .pipe(z.array(z.string().max(256)).max(256)),
+    CHUNK_MAX_CHARS: z.coerce.number().int().min(200).max(20000).default(2000),
+    CHUNK_OVERLAP_CHARS: z.coerce.number().int().min(0).default(200),
   })
   .superRefine((env, ctx) => {
     if (!env.API_ALLOW_NON_LOOPBACK && !LOOPBACK_HOSTS.has(env.API_HOST)) {
@@ -36,6 +72,20 @@ const envSchema = z
         path: ['API_HOST'],
         message:
           'must be a loopback address unless API_ALLOW_NON_LOOPBACK=true',
+      });
+    }
+    if (env.CHUNK_OVERLAP_CHARS >= env.CHUNK_MAX_CHARS) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['CHUNK_OVERLAP_CHARS'],
+        message: 'must be smaller than CHUNK_MAX_CHARS',
+      });
+    }
+    if (env.INGEST_MAX_FILE_BYTES > env.INGEST_MAX_TOTAL_BYTES) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['INGEST_MAX_FILE_BYTES'],
+        message: 'must not exceed INGEST_MAX_TOTAL_BYTES',
       });
     }
   });
@@ -51,6 +101,17 @@ export interface AppConfig {
     chatModel?: string;
     embeddingDimensions: number;
   };
+  ingestion: IngestionConfig;
+}
+
+export interface IngestionConfig {
+  maxFileBytes: number;
+  maxTotalBytes: number;
+  /** Language ids to index; undefined means every language the ingestion module knows. */
+  languages?: string[];
+  excludePatterns: string[];
+  chunkMaxChars: number;
+  chunkOverlapChars: number;
 }
 
 export const APP_CONFIG = Symbol('APP_CONFIG');
@@ -92,6 +153,14 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       embeddingModel: e.EMBEDDING_MODEL,
       chatModel: e.CHAT_MODEL,
       embeddingDimensions: e.EMBEDDING_DIMENSIONS,
+    },
+    ingestion: {
+      maxFileBytes: e.INGEST_MAX_FILE_BYTES,
+      maxTotalBytes: e.INGEST_MAX_TOTAL_BYTES,
+      languages: e.INGEST_LANGUAGES,
+      excludePatterns: e.INGEST_EXCLUDE_PATTERNS,
+      chunkMaxChars: e.CHUNK_MAX_CHARS,
+      chunkOverlapChars: e.CHUNK_OVERLAP_CHARS,
     },
   };
 }
