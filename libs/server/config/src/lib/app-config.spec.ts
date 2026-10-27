@@ -62,6 +62,70 @@ describe('loadConfig', () => {
     );
   });
 
+  describe('inference', () => {
+    it('uses documented defaults', () => {
+      expect(loadConfig({}).inference).toEqual({
+        provider: 'local',
+        runtime: 'ollama',
+        baseUrl: 'http://127.0.0.1:11434',
+        embeddingModel: 'nomic-embed-text',
+        chatModel: 'qwen2.5-coder:7b',
+        embeddingDimensions: 768,
+        timeoutMs: 30000,
+        maxRetries: 2,
+        embeddingBatchSize: 32,
+      });
+    });
+
+    it('overrides models and tunables', () => {
+      const embeddingModel = faker.lorem.word();
+      const chatModel = faker.lorem.word();
+      const inference = loadConfig({
+        EMBEDDING_MODEL: embeddingModel,
+        CHAT_MODEL: chatModel,
+        INFERENCE_TIMEOUT_MS: '5000',
+        INFERENCE_MAX_RETRIES: '0',
+        EMBEDDING_BATCH_SIZE: '8',
+      }).inference;
+      expect(inference).toMatchObject({
+        embeddingModel,
+        chatModel,
+        timeoutMs: 5000,
+        maxRetries: 0,
+        embeddingBatchSize: 8,
+      });
+    });
+
+    it.each(['openai', 'remote', 'Local'])(
+      'rejects provider %s',
+      (provider) => {
+        expect(() => loadConfig({ INFERENCE_PROVIDER: provider })).toThrow(
+          ConfigError,
+        );
+      },
+    );
+
+    it.each(['openai', 'llamacpp', 'Ollama'])(
+      'rejects unknown runtime %s',
+      (runtime) => {
+        expect(() => loadConfig({ INFERENCE_RUNTIME: runtime })).toThrow(
+          ConfigError,
+        );
+      },
+    );
+
+    it.each([
+      ['INFERENCE_TIMEOUT_MS', '10'],
+      ['INFERENCE_TIMEOUT_MS', '9999999'],
+      ['INFERENCE_MAX_RETRIES', '-1'],
+      ['INFERENCE_MAX_RETRIES', '6'],
+      ['EMBEDDING_BATCH_SIZE', '0'],
+      ['EMBEDDING_BATCH_SIZE', '257'],
+    ])('rejects %s=%s', (key, value) => {
+      expect(() => loadConfig({ [key]: value })).toThrow(ConfigError);
+    });
+  });
+
   it('does not leak values in error messages', () => {
     const failure = (): unknown => {
       try {

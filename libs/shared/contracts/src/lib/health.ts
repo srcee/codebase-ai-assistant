@@ -7,7 +7,23 @@ export interface DatabaseHealth {
   embeddingDimensions: number | null;
 }
 
+export interface InferenceModelHealth {
+  name: string;
+  /** True when the local runtime reports the model as pulled. */
+  available: boolean;
+}
+
+export interface InferenceHealth {
+  provider: 'local';
+  /** Configured runtime adapter, for example `ollama`. */
+  runtime: string;
+  status: 'up' | 'down';
+  embeddingModel: InferenceModelHealth;
+  chatModel: InferenceModelHealth;
+}
+
 export interface HealthResponse {
   status: 'ok' | 'degraded';
   database: DatabaseHealth;
+  inference: InferenceHealth;
 }

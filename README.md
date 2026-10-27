@@ -101,6 +101,43 @@ The `ingestion` module turns a registered repository into chunks. It has no endp
 - Failure modes: discovery throws `PathRejectedError` when the root is outside the allowed roots or no longer a repository, and `RepositoryRootChangedError` when the root is unreadable or resolves to a different path than the one registered (for example it was replaced by a link). Neither message contains a path.
 - The secret scan is deliberately conservative and favors skipping: documentation or tests that contain token-like examples can be skipped as `secret-content`.
 
+### Local inference
+
+Embeddings and chat run in a local runtime, [Ollama](https://ollama.com) by default. Install it, then pull the default models:
+
+```bash
+ollama pull nomic-embed-text    # embeddings, 768 dimensions
+ollama pull qwen2.5-coder:7b    # chat, about 8 GB of RAM or VRAM
+```
+
+The `privacy` module is the only code that makes outbound requests. `INFERENCE_BASE_URL` must be an `http` URL on `localhost`, `127.0.0.1`, or `::1` without credentials, path, query, or fragment; `localhost` must resolve to loopback only and is pinned to the resolved IP. Redirects are never followed. See [decision 0005](docs/decisions/0005-models-and-egress-policy.md).
+
+The runtime (Ollama today) is a plug-in. All of its code lives in one folder, `modules/inference/adapters/ollama/`, and the rest of the API only knows the ports:
+
+```text
+EmbeddingsService / GenerationService / InferenceHealthService   (runtime-agnostic)
+        │ inject EMBEDDING_PORT, CHAT_PORT, RUNTIME_HEALTH_PORT
+        ▼
+InferenceModule ── INFERENCE_RUNTIME=ollama ──► adapters/ollama/ (OllamaAdapter)
+        │
+        ▼
+PrivacyModule: EgressHttpClient (loopback only) ──► local runtime
+```
+
+- `EmbeddingsService.embed(texts)` (module `embeddings`) batches, retries transient failures, and checks vector sizes against `EMBEDDING_DIMENSIONS`. The Ollama adapter rejects input that exceeds the model context instead of truncating it.
+- `GenerationService.complete(messages)` and `.stream(messages)` (module `generation`) never retry and never fall back to another runtime.
+- `GET /health` also reports `inference` (`runtime`, `status`, and availability of each configured model) and returns 503 `degraded` when the runtime is unreachable or a model is missing.
+- Only `inference/constants/runtime-adapters.ts` may import an adapter, and adapter folders cannot import each other; lint enforces both. To add a runtime, see decision 0005.
+- Switching runtime means setting `INFERENCE_RUNTIME`, `EMBEDDING_MODEL`, and `CHAT_MODEL` together, because each runtime names models its own way.
+
+Failure modes: an invalid `INFERENCE_BASE_URL`, `INFERENCE_PROVIDER`, or `INFERENCE_RUNTIME` stops the API at startup with a message that does not echo the value; at runtime, unavailable inference, a missing model, or a rejected request returns 503 with a fixed message.
+
+To check the services against the runtime configured in your environment (skipped by default):
+
+```powershell
+$env:RUN_INFERENCE_SMOKE='true'; npx nx run api:test --testPathPatterns=inference.smoke
+```
+
 ### Environment variables
 
 Configuration is validated at startup; invalid values stop the API. See [.env.example](.env.example).
@@ -115,9 +152,14 @@ Configuration is validated at startup; invalid values stop the API. See [.env.ex
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_PORT`, `POSTGRES_TEST_DB`, `POSTGRES_TEST_PORT` | see `.env.example`       | Read by `docker-compose.yml` only                                             |
 | `ALLOWED_REPO_ROOTS`                                                                                           | empty (none allowed)     | Platform path delimiter (`;` on Windows)                                      |
 | `REPO_REQUIRE_GIT_DIR`                                                                                         | `true`                   | Require a `.git` directory when registering a repository                      |
-| `INFERENCE_BASE_URL`                                                                                           | `http://127.0.0.1:11434` | Local runtime; remote-endpoint rejection arrives in Stage 5                   |
-| `EMBEDDING_MODEL`                                                                                              | unset                    | Stage 5                                                                       |
-| `CHAT_MODEL`                                                                                                   | unset                    | Stage 5                                                                       |
+| `INFERENCE_PROVIDER`                                                                                           | `local`                  | Only `local` exists; any other value stops the API                            |
+| `INFERENCE_RUNTIME`                                                                                            | `ollama`                 | Selects the runtime adapters; only `ollama` exists                            |
+| `INFERENCE_BASE_URL`                                                                                           | `http://127.0.0.1:11434` | Ollama; `http` on `localhost`, `127.0.0.1`, or `::1` only, no path or login   |
+| `EMBEDDING_MODEL`                                                                                              | `nomic-embed-text`       | Ollama model name                                                             |
+| `CHAT_MODEL`                                                                                                   | `qwen2.5-coder:7b`       | Ollama model name                                                             |
+| `INFERENCE_TIMEOUT_MS`                                                                                         | `30000`                  | Per request; idle time between chunks when streaming (1000 to 600000)         |
+| `INFERENCE_MAX_RETRIES`                                                                                        | `2`                      | Embeddings only: network errors, timeouts, 5xx (0 to 5)                       |
+| `EMBEDDING_BATCH_SIZE`                                                                                         | `32`                     | Texts per embedding request (1 to 256)                                        |
 | `EMBEDDING_DIMENSIONS`                                                                                         | `768`                    | Must match the `vector` column; changing it needs a migration and re-index    |
 | `INGEST_MAX_FILE_BYTES`                                                                                        | `524288`                 | Larger files are skipped (`too-large`); at least 1024                         |
 | `INGEST_MAX_TOTAL_BYTES`                                                                                       | `104857600`              | Total bytes indexed per repository; must be at least the file limit           |

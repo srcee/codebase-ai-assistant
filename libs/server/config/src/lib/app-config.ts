@@ -3,6 +3,10 @@ import { z } from 'zod';
 
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
 
+/** Local runtimes with an adapter in the inference module. */
+export const INFERENCE_RUNTIMES = ['ollama'] as const;
+export type InferenceRuntime = (typeof INFERENCE_RUNTIMES)[number];
+
 const booleanFlag = z
   .enum(['true', 'false'])
   .default('false')
@@ -43,9 +47,19 @@ const envSchema = z
       .transform((value) => value.split(delimiter).filter(Boolean)),
     REPO_REQUIRE_GIT_DIR: enabledByDefaultFlag,
     INFERENCE_BASE_URL: z.url().default('http://127.0.0.1:11434'),
-    EMBEDDING_MODEL: z.string().min(1).optional(),
-    CHAT_MODEL: z.string().min(1).optional(),
+    INFERENCE_PROVIDER: z.enum(['local']).default('local'),
+    INFERENCE_RUNTIME: z.enum(INFERENCE_RUNTIMES).default('ollama'),
+    EMBEDDING_MODEL: z.string().min(1).default('nomic-embed-text'),
+    CHAT_MODEL: z.string().min(1).default('qwen2.5-coder:7b'),
     EMBEDDING_DIMENSIONS: z.coerce.number().int().positive().default(768),
+    INFERENCE_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .min(1000)
+      .max(600000)
+      .default(30000),
+    INFERENCE_MAX_RETRIES: z.coerce.number().int().min(0).max(5).default(2),
+    EMBEDDING_BATCH_SIZE: z.coerce.number().int().min(1).max(256).default(32),
     INGEST_MAX_FILE_BYTES: z.coerce
       .number()
       .int()
@@ -95,13 +109,23 @@ export interface AppConfig {
   databaseUrl?: string;
   allowedRepoRoots: string[];
   requireGitDirectory: boolean;
-  inference: {
-    baseUrl: string;
-    embeddingModel?: string;
-    chatModel?: string;
-    embeddingDimensions: number;
-  };
+  inference: InferenceConfig;
   ingestion: IngestionConfig;
+}
+
+export interface InferenceConfig {
+  /** Where requests may go; only loopback exists. */
+  provider: 'local';
+  /** Which runtime answers there; selects the adapter. */
+  runtime: InferenceRuntime;
+  baseUrl: string;
+  embeddingModel: string;
+  chatModel: string;
+  embeddingDimensions: number;
+  timeoutMs: number;
+  /** Applies to embeddings only; streaming chat is never retried. */
+  maxRetries: number;
+  embeddingBatchSize: number;
 }
 
 export interface IngestionConfig {
@@ -149,10 +173,15 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     allowedRepoRoots: e.ALLOWED_REPO_ROOTS,
     requireGitDirectory: e.REPO_REQUIRE_GIT_DIR,
     inference: {
+      provider: e.INFERENCE_PROVIDER,
+      runtime: e.INFERENCE_RUNTIME,
       baseUrl: e.INFERENCE_BASE_URL,
       embeddingModel: e.EMBEDDING_MODEL,
       chatModel: e.CHAT_MODEL,
       embeddingDimensions: e.EMBEDDING_DIMENSIONS,
+      timeoutMs: e.INFERENCE_TIMEOUT_MS,
+      maxRetries: e.INFERENCE_MAX_RETRIES,
+      embeddingBatchSize: e.EMBEDDING_BATCH_SIZE,
     },
     ingestion: {
       maxFileBytes: e.INGEST_MAX_FILE_BYTES,
