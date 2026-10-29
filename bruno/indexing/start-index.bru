@@ -1,0 +1,15 @@
+meta {
+  name: Start index
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/codebases/{{codebaseId}}/index
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 202
+}

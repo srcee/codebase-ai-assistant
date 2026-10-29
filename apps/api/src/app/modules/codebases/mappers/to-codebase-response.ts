@@ -1,4 +1,4 @@
-import type { CodebaseResponse } from '@codebase-ai/contracts';
+import type { CodebaseResponse, CodebaseStatus } from '@codebase-ai/contracts';
 import type { schema } from '@codebase-ai/server-database';
 
 type CodebaseRow = typeof schema.repositories.$inferSelect;
@@ -12,7 +12,7 @@ export function toCodebaseResponse(
     id: row.id,
     name: row.name,
     relativePath,
-    status: row.status as CodebaseResponse['status'],
+    status: row.status as CodebaseStatus,
     lastIndexedCommit: row.lastIndexedCommit,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),

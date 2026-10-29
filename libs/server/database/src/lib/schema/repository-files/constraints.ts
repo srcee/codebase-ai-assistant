@@ -14,4 +14,8 @@ export const constraints = (table: Columns) => [
     'repository_files_status_check',
     sql`${table.status} in ('indexed', 'skipped', 'failed')`,
   ),
+  check(
+    'repository_files_content_hash_check',
+    sql`${table.status} = 'skipped' or ${table.contentHash} is not null`,
+  ),
 ];

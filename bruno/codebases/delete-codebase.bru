@@ -1,0 +1,15 @@
+meta {
+  name: Delete codebase
+  type: http
+  seq: 3
+}
+
+delete {
+  url: {{baseUrl}}/codebases/{{codebaseId}}
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 204
+}

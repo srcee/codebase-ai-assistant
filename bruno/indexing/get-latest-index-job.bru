@@ -1,0 +1,15 @@
+meta {
+  name: Get latest index job
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/codebases/{{codebaseId}}/index-jobs/latest
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+}

@@ -9,11 +9,13 @@ export const columns = {
     .notNull()
     .references(() => repositories.id, { onDelete: 'cascade' }),
   relativePath: text('relative_path').notNull(),
-  contentHash: text('content_hash').notNull(),
+  contentHash: text('content_hash'),
   language: text('language'),
-  sizeBytes: bigint('size_bytes', { mode: 'number' }).notNull(),
+  sizeBytes: bigint('size_bytes', { mode: 'number' }),
   status: text('status').notNull(),
   statusReason: text('status_reason'),
+  embeddingModel: text('embedding_model'),
+  chunkingVersion: text('chunking_version'),
   lastIndexedAt: timestamp('last_indexed_at', { withTimezone: true }),
 };
 

@@ -50,6 +50,14 @@ describe('EmbeddingsService', () => {
     expect(result.map((vector) => vector[0])).toEqual([1, 2, 3, 4, 5]);
   });
 
+  it('identifies vectors by runtime and model', () => {
+    const model = faker.lorem.slug();
+    const { service } = serviceWith(async () => [], {
+      EMBEDDING_MODEL: model,
+    });
+    expect(service.identity).toBe(`${configWith().inference.runtime}/${model}`);
+  });
+
   it('makes no call for an empty input', async () => {
     const { port, service } = serviceWith(async () => []);
     await expect(service.embed([])).resolves.toEqual([]);
