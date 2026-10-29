@@ -1,6 +1,6 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import type { INestApplication } from '@nestjs/common';
+import { Logger, type INestApplication } from '@nestjs/common';
 import type { CodebaseResponse } from '@codebase-ai/contracts';
 import { type DatabaseHandle, schema } from '@codebase-ai/server-database';
 import {
@@ -59,6 +59,7 @@ describeWithDatabase('codebases API', (baseUrl) => {
   });
 
   afterEach(async () => {
+    jest.restoreAllMocks();
     await handle.db.delete(schema.repositories);
   });
 
@@ -117,6 +118,22 @@ describeWithDatabase('codebases API', (baseUrl) => {
       await api().delete(`/codebases/${created.id}`).expect(204);
       await api().get(`/codebases/${created.id}`).expect(404);
       await api().get('/codebases').expect(200).expect([]);
+    });
+
+    it('logs registration and deletion by id only', async () => {
+      const lines: string[] = [];
+      jest
+        .spyOn(Logger.prototype, 'log')
+        .mockImplementation(
+          (message: unknown) => void lines.push(String(message)),
+        );
+
+      const created = await registerCodebase('alpha');
+      await api().delete(`/codebases/${created.id}`).expect(204);
+
+      expect(lines).toContain(`Codebase registered id=${created.id}`);
+      expect(lines).toContain(`Codebase deleted id=${created.id}`);
+      assertNotLeaked(lines, box.path, box.root);
     });
 
     it('returns 404 for an unknown id', async () => {

@@ -12,6 +12,7 @@ import { FileDiscoveryService } from '../../ingestion/services/file-discovery.se
 import type { DiscoveryEntry } from '../../ingestion/types/discovery-entry';
 import { IndexJobCancelledError } from '../errors/index-job-cancelled.error';
 import { toIndexJobResponse } from '../mappers/to-index-job-response';
+import { runOutsideRequestContext } from '../../../utils/request-context';
 import type { FileOutcome } from '../types/file-outcome';
 import type { IndexContext } from '../types/index-context';
 import type { IndexJobCounters } from '../types/index-job-counters';
@@ -66,14 +67,18 @@ export class IndexJobRunnerService implements BeforeApplicationShutdown {
   async start(repositoryId: string): Promise<IndexJobResponse> {
     const { job, canonicalPath } = await this.jobs.create(repositoryId);
     const controller = new AbortController();
-    const done = this.run(job.id, repositoryId, canonicalPath, controller)
-      .catch((error: unknown) => {
-        const name = error instanceof Error ? error.name : 'UnknownError';
-        this.logger.error(
-          `Index job ${job.id} could not be finalized: ${name}`,
-        );
-      })
-      .finally(() => this.running.delete(job.id));
+    this.logger.log(`Index job ${job.id} started repository=${repositoryId}`);
+    // Job lines are identified by job id, not by the request that started it.
+    const done = runOutsideRequestContext(() =>
+      this.run(job.id, repositoryId, canonicalPath, controller)
+        .catch((error: unknown) => {
+          const name = error instanceof Error ? error.name : 'UnknownError';
+          this.logger.error(
+            `Index job ${job.id} could not be finalized: ${name}`,
+          );
+        })
+        .finally(() => this.running.delete(job.id)),
+    );
     this.running.set(job.id, { controller, done });
     return toIndexJobResponse(job);
   }

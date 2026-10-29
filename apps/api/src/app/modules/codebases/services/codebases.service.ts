@@ -3,6 +3,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { asc, eq } from 'drizzle-orm';
@@ -20,6 +21,8 @@ const { repositories } = schema;
 
 @Injectable()
 export class CodebasesService {
+  private readonly logger = new Logger(CodebasesService.name);
+
   constructor(
     private readonly database: DatabaseService,
     private readonly pathPolicy: PathPolicyService,
@@ -44,6 +47,7 @@ export class CodebasesService {
       .onConflictDoNothing({ target: repositories.canonicalPath })
       .returning();
     if (!row) throw new ConflictException('Codebase is already registered.');
+    this.logger.log(`Codebase registered id=${row.id}`);
     return toCodebaseResponse(row, resolved.relativePath);
   }
 
@@ -78,5 +82,6 @@ export class CodebasesService {
       .returning({ id: repositories.id });
     if (deleted.length === 0)
       throw new NotFoundException('Codebase not found.');
+    this.logger.log(`Codebase deleted id=${id}`);
   }
 }

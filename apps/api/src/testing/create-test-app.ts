@@ -30,6 +30,8 @@ export async function createTestApp(
     builder = builder.overrideProvider(provide).useValue(useValue);
   }
   const app = (await builder.compile()).createNestApplication();
+  // Console output stays off; specs that assert on logs spy on Logger.prototype.
+  app.useLogger(false);
   configureApp(app);
   await app.init();
   return app;

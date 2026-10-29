@@ -45,7 +45,8 @@ export class SanitizedExceptionFilter implements ExceptionFilter {
 
     const request = http.getRequest<Request>();
     const errorName = exception instanceof Error ? exception.name : 'Unknown';
-    this.logger.error(`${request.method} ${request.path} failed: ${errorName}`);
+    const route = request.route?.path ?? '<unmatched>';
+    this.logger.error(`${request.method} ${route} failed: ${errorName}`);
     response
       .status(500)
       .json({ statusCode: 500, message: 'Internal server error' });

@@ -7,6 +7,12 @@ const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
 export const INFERENCE_RUNTIMES = ['ollama'] as const;
 export type InferenceRuntime = (typeof INFERENCE_RUNTIMES)[number];
 
+/** Nest logger levels, from most to least severe. */
+export const LOG_LEVELS = ['error', 'warn', 'log', 'debug', 'verbose'] as const;
+export type LogLevel = (typeof LOG_LEVELS)[number];
+export const LOG_FORMATS = ['text', 'json'] as const;
+export type LogFormat = (typeof LOG_FORMATS)[number];
+
 const enabledByDefaultFlag = z
   .enum(['true', 'false'])
   .default('true')
@@ -35,6 +41,8 @@ const envSchema = z
     API_HOST: z.string().min(1).default('127.0.0.1'),
     API_PORT: z.coerce.number().int().min(1).max(65535).default(3000),
     API_TOKEN_FILE: z.string().min(1).default('.local/api-token.secret'),
+    LOG_LEVEL: z.enum(LOG_LEVELS).default('log'),
+    LOG_FORMAT: z.enum(LOG_FORMATS).default('text'),
     DATABASE_URL: z.url().optional(),
     ALLOWED_REPO_ROOTS: z
       .string()
@@ -106,6 +114,7 @@ const envSchema = z
 
 export interface AppConfig {
   api: { host: string; port: number; tokenFile: string };
+  logging: { level: LogLevel; format: LogFormat };
   databaseUrl?: string;
   allowedRepoRoots: string[];
   requireGitDirectory: boolean;
@@ -175,6 +184,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       port: e.API_PORT,
       tokenFile: resolve(e.API_TOKEN_FILE),
     },
+    logging: { level: e.LOG_LEVEL, format: e.LOG_FORMAT },
     databaseUrl: e.DATABASE_URL,
     allowedRepoRoots: e.ALLOWED_REPO_ROOTS,
     requireGitDirectory: e.REPO_REQUIRE_GIT_DIR,
