@@ -1,13 +1,41 @@
 /// <reference types='vitest' />
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { nxViteTsPaths } from '@nx/vite/plugins/nx-tsconfig-paths.plugin';
 import { nxCopyAssetsPlugin } from '@nx/vite/plugins/nx-copy-assets.plugin';
 
+const tokenFile =
+  process.env['API_TOKEN_FILE'] ??
+  resolve(import.meta.dirname, '../../.local/api-token.secret');
+
+// Read per request so the web server can start before the API creates the file; the token never reaches the bundle.
+function readApiToken(): string | undefined {
+  try {
+    return readFileSync(tokenFile, 'utf8').trim() || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 const apiProxy = {
   '/api': {
     target: 'http://127.0.0.1:3000',
     rewrite: (path: string) => path.replace(/^\/api/, ''),
+    configure: (proxy: {
+      on(
+        event: 'proxyReq',
+        listener: (request: {
+          setHeader(name: string, value: string): void;
+        }) => void,
+      ): void;
+    }) => {
+      proxy.on('proxyReq', (request) => {
+        const token = readApiToken();
+        if (token) request.setHeader('Authorization', `Bearer ${token}`);
+      });
+    },
   },
 };
 

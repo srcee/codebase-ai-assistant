@@ -1,8 +1,9 @@
 import { Controller, Get, HttpStatus, Inject, Res } from '@nestjs/common';
 import type { Response } from 'express';
-import type { HealthResponse } from '@codebase-ai/contracts';
+import type { HealthResponse, LivenessResponse } from '@codebase-ai/contracts';
 import { APP_CONFIG, type AppConfig } from '@codebase-ai/server-config';
 import { DatabaseService } from '@codebase-ai/server-database';
+import { Public } from '../../../decorators/public.decorator';
 import { InferenceHealthService } from '../services/inference-health.service';
 
 @Controller('health')
@@ -12,6 +13,12 @@ export class HealthController {
     private readonly inferenceHealth: InferenceHealthService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
+
+  @Public()
+  @Get('live')
+  live(): LivenessResponse {
+    return { status: 'ok' };
+  }
 
   @Get()
   async check(

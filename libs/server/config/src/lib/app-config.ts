@@ -1,4 +1,4 @@
-import { delimiter } from 'node:path';
+import { delimiter, resolve } from 'node:path';
 import { z } from 'zod';
 
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
@@ -6,11 +6,6 @@ const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
 /** Local runtimes with an adapter in the inference module. */
 export const INFERENCE_RUNTIMES = ['ollama'] as const;
 export type InferenceRuntime = (typeof INFERENCE_RUNTIMES)[number];
-
-const booleanFlag = z
-  .enum(['true', 'false'])
-  .default('false')
-  .transform((value) => value === 'true');
 
 const enabledByDefaultFlag = z
   .enum(['true', 'false'])
@@ -39,7 +34,7 @@ const envSchema = z
   .object({
     API_HOST: z.string().min(1).default('127.0.0.1'),
     API_PORT: z.coerce.number().int().min(1).max(65535).default(3000),
-    API_ALLOW_NON_LOOPBACK: booleanFlag,
+    API_TOKEN_FILE: z.string().min(1).default('.local/api-token.secret'),
     DATABASE_URL: z.url().optional(),
     ALLOWED_REPO_ROOTS: z
       .string()
@@ -86,12 +81,11 @@ const envSchema = z
       .default(2),
   })
   .superRefine((env, ctx) => {
-    if (!env.API_ALLOW_NON_LOOPBACK && !LOOPBACK_HOSTS.has(env.API_HOST)) {
+    if (!LOOPBACK_HOSTS.has(env.API_HOST)) {
       ctx.addIssue({
         code: 'custom',
         path: ['API_HOST'],
-        message:
-          'must be a loopback address unless API_ALLOW_NON_LOOPBACK=true',
+        message: 'must be a loopback address',
       });
     }
     if (env.CHUNK_OVERLAP_CHARS >= env.CHUNK_MAX_CHARS) {
@@ -111,7 +105,7 @@ const envSchema = z
   });
 
 export interface AppConfig {
-  api: { host: string; port: number; allowNonLoopback: boolean };
+  api: { host: string; port: number; tokenFile: string };
   databaseUrl?: string;
   allowedRepoRoots: string[];
   requireGitDirectory: boolean;
@@ -179,7 +173,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     api: {
       host: e.API_HOST,
       port: e.API_PORT,
-      allowNonLoopback: e.API_ALLOW_NON_LOOPBACK,
+      tokenFile: resolve(e.API_TOKEN_FILE),
     },
     databaseUrl: e.DATABASE_URL,
     allowedRepoRoots: e.ALLOWED_REPO_ROOTS,

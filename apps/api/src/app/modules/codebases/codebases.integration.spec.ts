@@ -1,7 +1,6 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { INestApplication } from '@nestjs/common';
-import request from 'supertest';
 import type { CodebaseResponse } from '@codebase-ai/contracts';
 import { type DatabaseHandle, schema } from '@codebase-ai/server-database';
 import {
@@ -19,6 +18,7 @@ import {
   testConfig,
 } from '@codebase-ai/server-testing';
 import { assertNotLeaked, faker } from '@codebase-ai/shared-testing';
+import { authorizedAgent } from '../../../testing/authorized-agent';
 import { createTestApp } from '../../../testing/create-test-app';
 
 // The schema suite in server-database drops the public schema, so this suite gets its own database.
@@ -31,9 +31,8 @@ describeWithDatabase('codebases API', (baseUrl) => {
   const secretName = `secret-${faker.string.alphanumeric(10)}`;
   const serverName = `srv-${faker.string.alphanumeric(10)}`;
 
-  const server = () => app.getHttpServer();
-  const register = (body: object) =>
-    request(server()).post('/codebases').send(body);
+  const api = () => authorizedAgent(app);
+  const register = (body: object) => api().post('/codebases').send(body);
   const registerCodebase = async (name: string): Promise<CodebaseResponse> =>
     (await register({ path: join(box.root, name) }).expect(201))
       .body as CodebaseResponse;
@@ -97,40 +96,38 @@ describeWithDatabase('codebases API', (baseUrl) => {
     it('lists registered codebases ordered by name', async () => {
       await registerCodebase('gamma');
       await registerCodebase('alpha');
-      const response = await request(server()).get('/codebases').expect(200);
+      const response = await api().get('/codebases').expect(200);
       expect(
         (response.body as CodebaseResponse[]).map((item) => item.name),
       ).toEqual(['alpha', 'gamma']);
     });
 
     it('lists nothing when no codebases are registered', async () => {
-      await request(server()).get('/codebases').expect(200).expect([]);
+      await api().get('/codebases').expect(200).expect([]);
     });
 
     it('gets a codebase by id', async () => {
       const created = await registerCodebase('beta');
-      const response = await request(server())
-        .get(`/codebases/${created.id}`)
-        .expect(200);
+      const response = await api().get(`/codebases/${created.id}`).expect(200);
       expect(response.body).toEqual(created);
     });
 
     it('deletes a codebase', async () => {
       const created = await registerCodebase('beta');
-      await request(server()).delete(`/codebases/${created.id}`).expect(204);
-      await request(server()).get(`/codebases/${created.id}`).expect(404);
-      await request(server()).get('/codebases').expect(200).expect([]);
+      await api().delete(`/codebases/${created.id}`).expect(204);
+      await api().get(`/codebases/${created.id}`).expect(404);
+      await api().get('/codebases').expect(200).expect([]);
     });
 
     it('returns 404 for an unknown id', async () => {
       const unknown = faker.string.uuid();
-      await request(server()).get(`/codebases/${unknown}`).expect(404);
-      await request(server()).delete(`/codebases/${unknown}`).expect(404);
+      await api().get(`/codebases/${unknown}`).expect(404);
+      await api().delete(`/codebases/${unknown}`).expect(404);
     });
 
     it('returns 400 for a malformed id', async () => {
-      await request(server()).get('/codebases/not-a-uuid').expect(400);
-      await request(server()).delete('/codebases/not-a-uuid').expect(400);
+      await api().get('/codebases/not-a-uuid').expect(400);
+      await api().delete('/codebases/not-a-uuid').expect(400);
     });
   });
 
@@ -143,7 +140,7 @@ describeWithDatabase('codebases API', (baseUrl) => {
     it('returns 409 when a link resolves to a registered path', async () => {
       await registerCodebase('alpha');
       await register({ path: join(box.root, 'alpha-alias') }).expect(409);
-      const list = await request(server()).get('/codebases').expect(200);
+      const list = await api().get('/codebases').expect(200);
       expect(list.body).toHaveLength(1);
     });
 
@@ -154,7 +151,7 @@ describeWithDatabase('codebases API', (baseUrl) => {
 
     it('allows the same path again after deletion', async () => {
       const created = await registerCodebase('alpha');
-      await request(server()).delete(`/codebases/${created.id}`).expect(204);
+      await api().delete(`/codebases/${created.id}`).expect(204);
       await registerCodebase('alpha');
     });
   });
@@ -182,7 +179,7 @@ describeWithDatabase('codebases API', (baseUrl) => {
       await register({ path: join(box.root, 'alpha'), extra: true }).expect(
         400,
       );
-      await request(server()).get('/codebases').expect(200).expect([]);
+      await api().get('/codebases').expect(200).expect([]);
     });
   });
 
@@ -201,15 +198,15 @@ describeWithDatabase('codebases API', (baseUrl) => {
     ])('rejects %s without echoing it', async (_name, path) => {
       const response = await register({ path: path() }).expect(400);
       assertNotLeaked(response.body, box.path, secretName, serverName);
-      await request(server()).get('/codebases').expect(200).expect([]);
+      await api().get('/codebases').expect(200).expect([]);
     });
 
     it('never exposes absolute paths in any response', async () => {
       const created = await registerCodebase('alpha');
       const responses = [
         created,
-        (await request(server()).get('/codebases').expect(200)).body,
-        (await request(server()).get(`/codebases/${created.id}`)).body,
+        (await api().get('/codebases').expect(200)).body,
+        (await api().get(`/codebases/${created.id}`)).body,
       ];
       for (const body of responses) {
         assertNotLeaked(body, box.path, box.root);
@@ -231,7 +228,7 @@ describeWithDatabase('codebases API', (baseUrl) => {
         dbOptions(),
       );
 
-      await request(server()).delete(`/codebases/${created.id}`).expect(204);
+      await api().delete(`/codebases/${created.id}`).expect(204);
 
       const count = async (table: string) =>
         (
@@ -250,7 +247,7 @@ describeWithDatabase('codebases API', (baseUrl) => {
       await indexJobFactory.create({ repositoryId: first.id }, dbOptions());
       await indexJobFactory.create({ repositoryId: second.id }, dbOptions());
 
-      await request(server()).delete(`/codebases/${first.id}`).expect(204);
+      await api().delete(`/codebases/${first.id}`).expect(204);
 
       const { rows } = await handle.pool.query<{ repository_id: string }>(
         'select repository_id from index_jobs',

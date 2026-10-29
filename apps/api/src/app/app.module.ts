@@ -1,6 +1,10 @@
 import { Global, Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { APP_CONFIG, loadConfig } from '@codebase-ai/server-config';
 import { DatabaseModule } from '@codebase-ai/server-database';
+import { ApiTokenGuard } from './guards/api-token.guard';
+import { LoopbackRequestGuard } from './guards/loopback-request.guard';
+import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
 import { CodebasesModule } from './modules/codebases/codebases.module';
 import { EmbeddingsModule } from './modules/embeddings/embeddings.module';
@@ -13,6 +17,7 @@ import { PrivacyModule } from './modules/privacy/privacy.module';
 @Module({
   imports: [
     DatabaseModule,
+    AuthModule,
     PrivacyModule,
     EmbeddingsModule,
     GenerationModule,
@@ -21,7 +26,12 @@ import { PrivacyModule } from './modules/privacy/privacy.module';
     IngestionModule,
     IndexingModule,
   ],
-  providers: [{ provide: APP_CONFIG, useFactory: () => loadConfig() }],
+  providers: [
+    { provide: APP_CONFIG, useFactory: () => loadConfig() },
+    // Order matters: the request origin is checked before the token.
+    { provide: APP_GUARD, useClass: LoopbackRequestGuard },
+    { provide: APP_GUARD, useClass: ApiTokenGuard },
+  ],
   exports: [APP_CONFIG],
 })
 export class AppModule {}

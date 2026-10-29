@@ -47,6 +47,9 @@ docs/*
 !docs/decisions/
 docs/local/
 
+# Generated API token
+.local/
+
 vite.config.*.timestamp*
 vitest.config.*.timestamp*
 .vitest

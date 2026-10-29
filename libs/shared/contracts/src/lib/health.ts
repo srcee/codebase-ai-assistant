@@ -27,3 +27,8 @@ export interface HealthResponse {
   database: DatabaseHealth;
   inference: InferenceHealth;
 }
+
+/** Answers without the API token and checks no dependency. */
+export interface LivenessResponse {
+  status: 'ok';
+}
