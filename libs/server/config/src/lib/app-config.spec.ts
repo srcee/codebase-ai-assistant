@@ -52,6 +52,23 @@ describe('loadConfig', () => {
     ).toBe(resolve('secrets/token.secret'));
   });
 
+  it('logs at the log level in text format by default', () => {
+    expect(loadConfig({}).logging).toEqual({ level: 'log', format: 'text' });
+  });
+
+  it('reads the log level and format', () => {
+    expect(
+      loadConfig({ LOG_LEVEL: 'warn', LOG_FORMAT: 'json' }).logging,
+    ).toEqual({ level: 'warn', format: 'json' });
+  });
+
+  it.each([
+    ['LOG_LEVEL', 'trace'],
+    ['LOG_FORMAT', 'xml'],
+  ])('rejects an invalid %s', (name, value) => {
+    expect(() => loadConfig({ [name]: value })).toThrow(ConfigError);
+  });
+
   it.each(['0', '70000', 'abc'])('rejects invalid port %s', (port) => {
     expect(() => loadConfig({ API_PORT: port })).toThrow(ConfigError);
   });

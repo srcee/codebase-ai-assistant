@@ -105,6 +105,15 @@ curl -H "Authorization: Bearer $(cat .local/api-token.secret)" http://127.0.0.1:
 - Requests are also rejected with `403` unless `Host` is `localhost`, `127.0.0.1`, or `[::1]`, `Origin` (when sent) is one of those, and `Sec-Fetch-Site` is not `cross-site`. This blocks DNS rebinding and other websites in your browser. A response with `401` or `403` carries a fixed message and never echoes headers.
 - `GET /health/live` returns `{ "status": "ok" }` without a token and checks no dependency. See [decision 0007](docs/decisions/0007-local-api-authentication.md).
 
+### Logging
+
+Logs go to stdout and are never shipped anywhere. `LOG_LEVEL` (`error`, `warn`, `log`, `debug`, `verbose`; default `log`) and `LOG_FORMAT` (`text` or `json`; default `text`) are read at startup.
+
+- Every response carries an `X-Request-Id` header. The API generates the id and ignores any id the client sends. Log lines written while handling the request carry it as `[req:<id>]` in text or as `requestId` in JSON. Index job lines are identified by job id instead.
+- Each request logs one line when it ends: `GET /codebases/:id 200 12ms`. The route pattern is logged, never the URL, query string, headers, or body. Unknown paths show as `<unmatched>`. 4xx responses log at `warn`, 5xx at `error`.
+- Registering or deleting a codebase and starting an index job log one line with ids only.
+- Source code, embeddings, prompts, chat text, request bodies, and tokens are never logged.
+
 ### Ingestion (file discovery and chunking)
 
 The `ingestion` module turns a registered repository into chunks. It has no endpoints and writes nothing to the database; the `indexing` module calls it. See [decision 0004](docs/decisions/0004-ingestion-discovery-and-chunking.md).
@@ -178,6 +187,8 @@ Configuration is validated at startup; invalid values stop the API. See [.env.ex
 | `API_HOST`                                                                                                     | `127.0.0.1`               | Must be a loopback address                                                    |
 | `API_PORT`                                                                                                     | `3000`                    |                                                                               |
 | `API_TOKEN_FILE`                                                                                               | `.local/api-token.secret` | Bearer token file, created on first start; relative to the working directory  |
+| `LOG_LEVEL`                                                                                                    | `log`                     | `error`, `warn`, `log`, `debug`, or `verbose`                                 |
+| `LOG_FORMAT`                                                                                                   | `text`                    | `text` or `json` (one JSON object per line)                                   |
 | `DATABASE_URL`                                                                                                 | unset                     | PostgreSQL connection string; `/health` is degraded if unset                  |
 | `TEST_DATABASE_URL`                                                                                            | unset                     | Integration tests only; database name must end in `_test`                     |
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_PORT`, `POSTGRES_TEST_DB`, `POSTGRES_TEST_PORT` | see `.env.example`        | Read by `docker-compose.yml` only                                             |

@@ -6,20 +6,23 @@ import { AppModule } from './app/app.module';
 import { configureApp } from './app/configure-app';
 import { ApiTokenFileError } from './app/modules/auth/errors/api-token-file.error';
 import { PrivacyPolicyError } from './app/modules/privacy/errors/privacy-policy.error';
+import { AppLogger } from './app/services/app-logger.service';
 
 async function bootstrap() {
   if (existsSync('.env')) {
     process.loadEnvFile('.env');
   }
 
+  // Buffered until the configured logger exists, so no startup line is lost or misformatted.
   const app = await NestFactory.create(AppModule, {
-    logger: ['log', 'warn', 'error'],
+    bufferLogs: true,
     abortOnError: false,
   });
+  const { api, logging } = app.get<AppConfig>(APP_CONFIG);
+  app.useLogger(new AppLogger(logging));
   configureApp(app);
   app.enableShutdownHooks();
 
-  const { api } = app.get<AppConfig>(APP_CONFIG);
   await app.listen(api.port, api.host);
   Logger.log(`API listening on http://${api.host}:${api.port}`);
 }
