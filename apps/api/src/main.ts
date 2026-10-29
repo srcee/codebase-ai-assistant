@@ -16,6 +16,7 @@ async function bootstrap() {
     abortOnError: false,
   });
   configureApp(app);
+  app.enableShutdownHooks();
 
   const { api } = app.get<AppConfig>(APP_CONFIG);
   if (api.allowNonLoopback) {
