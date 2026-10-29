@@ -45,6 +45,7 @@ out-tsc/
 # Local planning docs (decision records are kept)
 docs/*
 !docs/decisions/
+docs/local/
 
 vite.config.*.timestamp*
 vitest.config.*.timestamp*
