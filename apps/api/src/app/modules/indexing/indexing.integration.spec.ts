@@ -2,7 +2,6 @@ import { renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Logger, type INestApplication } from '@nestjs/common';
 import { and, eq, sql } from 'drizzle-orm';
-import request from 'supertest';
 import type {
   CodebaseResponse,
   IndexJobResponse,
@@ -31,6 +30,7 @@ import {
   CANARY_SECRET,
   faker,
 } from '@codebase-ai/shared-testing';
+import { authorizedAgent } from '../../../testing/authorized-agent';
 import { createTestApp } from '../../../testing/create-test-app';
 import { InferenceRequestRejectedError } from '../inference/errors/inference-request-rejected.error';
 import { InferenceUnavailableError } from '../inference/errors/inference-unavailable.error';
@@ -65,7 +65,7 @@ describeWithDatabase('indexing API', (baseUrl) => {
   let config: AppConfig;
   const embedBatch = jest.fn<Promise<number[][]>, [readonly string[]]>();
 
-  const server = () => app.getHttpServer();
+  const api = () => authorizedAgent(app);
   const runner = () => app.get(IndexJobRunnerService, { strict: false });
   const embeddedTexts = (): string[] =>
     embedBatch.mock.calls.flatMap(([texts]) => [...texts]);
@@ -78,22 +78,15 @@ describeWithDatabase('indexing API', (baseUrl) => {
       `repo-${faker.string.alphanumeric(10).toLowerCase()}`,
     );
     writeFiles(path, files);
-    const response = await request(server())
-      .post('/codebases')
-      .send({ path })
-      .expect(201);
+    const response = await api().post('/codebases').send({ path }).expect(201);
     return { id: (response.body as CodebaseResponse).id, path };
   };
 
-  const startIndex = (id: string) =>
-    request(server()).post(`/codebases/${id}/index`);
+  const startIndex = (id: string) => api().post(`/codebases/${id}/index`);
 
   const latest = async (id: string): Promise<LatestIndexJobResponse> =>
-    (
-      await request(server())
-        .get(`/codebases/${id}/index-jobs/latest`)
-        .expect(200)
-    ).body as LatestIndexJobResponse;
+    (await api().get(`/codebases/${id}/index-jobs/latest`).expect(200))
+      .body as LatestIndexJobResponse;
 
   const indexAndWait = async (id: string): Promise<LatestIndexJobResponse> => {
     await startIndex(id).expect(202);
@@ -402,7 +395,7 @@ describeWithDatabase('indexing API', (baseUrl) => {
       const repo = await registerRepository(baseFiles());
       const release = blockEmbeddings();
       await startIndex(repo.id).expect(202);
-      await request(server()).delete(`/codebases/${repo.id}`).expect(204);
+      await api().delete(`/codebases/${repo.id}`).expect(204);
       release();
       await runner().whenIdle();
 
@@ -441,7 +434,7 @@ describeWithDatabase('indexing API', (baseUrl) => {
         ],
       });
 
-      await request(shuttingDown.getHttpServer())
+      await authorizedAgent(shuttingDown)
         .post(`/codebases/${repo.id}/index`)
         .expect(202);
       await started;
@@ -482,13 +475,9 @@ describeWithDatabase('indexing API', (baseUrl) => {
     it('returns 404 for an unknown codebase or one never indexed', async () => {
       const unknown = faker.string.uuid();
       await startIndex(unknown).expect(404);
-      await request(server())
-        .get(`/codebases/${unknown}/index-jobs/latest`)
-        .expect(404);
+      await api().get(`/codebases/${unknown}/index-jobs/latest`).expect(404);
       const repo = await registerRepository(baseFiles());
-      await request(server())
-        .get(`/codebases/${repo.id}/index-jobs/latest`)
-        .expect(404);
+      await api().get(`/codebases/${repo.id}/index-jobs/latest`).expect(404);
     });
 
     it('returns 400 for a malformed id', async () => {
@@ -505,14 +494,14 @@ describeWithDatabase('indexing API', (baseUrl) => {
           .mockImplementation((...args: unknown[]) => void messages.push(args));
       }
       const sample = buildSampleRepository(box);
-      const registered = await request(server())
+      const registered = await api()
         .post('/codebases')
         .send({ path: sample.path })
         .expect(201);
       const id = (registered.body as CodebaseResponse).id;
 
       const { job } = await indexAndWait(id);
-      const latestResponse = await request(server())
+      const latestResponse = await api()
         .get(`/codebases/${id}/index-jobs/latest`)
         .expect(200);
 

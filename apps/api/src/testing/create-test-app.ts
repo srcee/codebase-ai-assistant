@@ -4,6 +4,8 @@ import { APP_CONFIG, type AppConfig } from '@codebase-ai/server-config';
 import { testConfig } from '@codebase-ai/server-testing';
 import { AppModule } from '../app/app.module';
 import { configureApp } from '../app/configure-app';
+import { ApiTokenService } from '../app/modules/auth/services/api-token.service';
+import { TEST_API_TOKEN } from './authorized-agent';
 
 export interface TestAppOptions {
   /** Defaults to an empty environment, so no database is configured. */
@@ -12,7 +14,7 @@ export interface TestAppOptions {
   overrides?: { provide: unknown; useValue: unknown }[];
 }
 
-/** Boots AppModule with the production global pipes and filters; the caller closes the app. */
+/** Boots AppModule with the production global pipes, filters and guards; the token is TEST_API_TOKEN and no token file is touched. The caller closes the app. */
 export async function createTestApp(
   options: TestAppOptions = {},
 ): Promise<INestApplication> {
@@ -21,7 +23,9 @@ export async function createTestApp(
     controllers: options.controllers ?? [],
   })
     .overrideProvider(APP_CONFIG)
-    .useValue(options.config ?? testConfig());
+    .useValue(options.config ?? testConfig())
+    .overrideProvider(ApiTokenService)
+    .useValue({ matches: (candidate: string) => candidate === TEST_API_TOKEN });
   for (const { provide, useValue } of options.overrides ?? []) {
     builder = builder.overrideProvider(provide).useValue(useValue);
   }

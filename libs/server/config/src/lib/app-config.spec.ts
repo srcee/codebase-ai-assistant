@@ -1,4 +1,4 @@
-import { delimiter } from 'node:path';
+import { delimiter, resolve } from 'node:path';
 import {
   assertNotLeaked,
   CANARY_DB_PASSWORD,
@@ -12,7 +12,7 @@ describe('loadConfig', () => {
     expect(config.api).toEqual({
       host: '127.0.0.1',
       port: 3000,
-      allowNonLoopback: false,
+      tokenFile: resolve('.local/api-token.secret'),
     });
     expect(config.allowedRepoRoots).toEqual([]);
     expect(config.requireGitDirectory).toBe(true);
@@ -39,17 +39,17 @@ describe('loadConfig', () => {
     expect(config.allowedRepoRoots).toEqual(roots);
   });
 
-  it('rejects a non-loopback host without explicit opt-in', () => {
-    expect(() => loadConfig({ API_HOST: '0.0.0.0' })).toThrow(ConfigError);
-  });
+  it.each(['0.0.0.0', faker.internet.ipv4()])(
+    'rejects the non-loopback host %s',
+    (host) => {
+      expect(() => loadConfig({ API_HOST: host })).toThrow(ConfigError);
+    },
+  );
 
-  it('accepts a non-loopback host with explicit opt-in', () => {
-    const host = faker.internet.ipv4();
-    const config = loadConfig({
-      API_HOST: host,
-      API_ALLOW_NON_LOOPBACK: 'true',
-    });
-    expect(config.api.host).toBe(host);
+  it('resolves the token file against the working directory', () => {
+    expect(
+      loadConfig({ API_TOKEN_FILE: 'secrets/token.secret' }).api.tokenFile,
+    ).toBe(resolve('secrets/token.secret'));
   });
 
   it.each(['0', '70000', 'abc'])('rejects invalid port %s', (port) => {

@@ -1,7 +1,6 @@
 ﻿import { Body, Controller, INestApplication, Post } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { IsString } from 'class-validator';
-import request from 'supertest';
 import type { DatabaseHealth } from '@codebase-ai/contracts';
 import { DatabaseService } from '@codebase-ai/server-database';
 import {
@@ -13,6 +12,7 @@ import {
   inferenceHealthFactory,
 } from '@codebase-ai/shared-testing';
 import { testConfig } from '@codebase-ai/server-testing';
+import { authorizedAgent } from '../testing/authorized-agent';
 import { createTestApp } from '../testing/create-test-app';
 import { AppModule } from './app.module';
 import { InferenceUnavailableError } from './modules/inference/errors/inference-unavailable.error';
@@ -63,9 +63,7 @@ describe('API', () => {
   });
 
   it('GET /health is degraded when no database is configured', async () => {
-    const response = await request(app.getHttpServer())
-      .get('/health')
-      .expect(503);
+    const response = await authorizedAgent(app).get('/health').expect(503);
     expect(response.body).toEqual(
       healthResponseFactory.build({
         status: 'degraded',
@@ -75,9 +73,7 @@ describe('API', () => {
   });
 
   it('GET /codebases returns 503 when no database is configured', async () => {
-    const response = await request(app.getHttpServer())
-      .get('/codebases')
-      .expect(503);
+    const response = await authorizedAgent(app).get('/codebases').expect(503);
     expect(response.body).toEqual({
       statusCode: 503,
       message: 'DATABASE_URL is not configured',
@@ -86,7 +82,7 @@ describe('API', () => {
 
   it('accepts a valid body', async () => {
     const body = { name: faker.person.firstName() };
-    const response = await request(app.getHttpServer())
+    const response = await authorizedAgent(app)
       .post('/test/echo')
       .send(body)
       .expect(201);
@@ -94,23 +90,21 @@ describe('API', () => {
   });
 
   it('rejects unknown body fields', async () => {
-    await request(app.getHttpServer())
+    await authorizedAgent(app)
       .post('/test/echo')
       .send({ name: faker.person.firstName(), extra: 1 })
       .expect(400);
   });
 
   it('rejects a malformed body', async () => {
-    await request(app.getHttpServer())
+    await authorizedAgent(app)
       .post('/test/echo')
       .send({ name: faker.number.int() })
       .expect(400);
   });
 
   it('hides internal error details', async () => {
-    const response = await request(app.getHttpServer())
-      .post('/test/boom')
-      .expect(500);
+    const response = await authorizedAgent(app).post('/test/boom').expect(500);
     assertNotLeaked(response.body, CANARY_SECRET);
   });
 });
@@ -129,7 +123,7 @@ describe('health with a database', () => {
       ],
     });
     app = started;
-    return () => request(started.getHttpServer()).get('/health');
+    return () => authorizedAgent(started).get('/health');
   };
 
   afterEach(async () => {
@@ -178,7 +172,7 @@ describe('health with local inference', () => {
         },
       ],
     });
-    return request(app.getHttpServer()).get('/health');
+    return authorizedAgent(app).get('/health');
   };
 
   afterEach(async () => {

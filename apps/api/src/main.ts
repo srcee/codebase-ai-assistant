@@ -4,6 +4,7 @@ import { NestFactory } from '@nestjs/core';
 import { APP_CONFIG, AppConfig, ConfigError } from '@codebase-ai/server-config';
 import { AppModule } from './app/app.module';
 import { configureApp } from './app/configure-app';
+import { ApiTokenFileError } from './app/modules/auth/errors/api-token-file.error';
 import { PrivacyPolicyError } from './app/modules/privacy/errors/privacy-policy.error';
 
 async function bootstrap() {
@@ -19,17 +20,16 @@ async function bootstrap() {
   app.enableShutdownHooks();
 
   const { api } = app.get<AppConfig>(APP_CONFIG);
-  if (api.allowNonLoopback) {
-    Logger.warn(
-      `API_ALLOW_NON_LOOPBACK is enabled; binding to ${api.host}. Protect this interface.`,
-    );
-  }
   await app.listen(api.port, api.host);
   Logger.log(`API listening on http://${api.host}:${api.port}`);
 }
 
 bootstrap().catch((error: unknown) => {
-  if (error instanceof ConfigError || error instanceof PrivacyPolicyError) {
+  if (
+    error instanceof ConfigError ||
+    error instanceof PrivacyPolicyError ||
+    error instanceof ApiTokenFileError
+  ) {
     Logger.error(error.message);
   } else {
     Logger.error(
