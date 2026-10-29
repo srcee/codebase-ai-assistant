@@ -157,6 +157,47 @@ describeWithDatabase('database schema', (url) => {
     expect(first.file.relativePath).toBe(second.file.relativePath);
   });
 
+  it('allows a skipped file without a content hash', async () => {
+    const repo = await repositoryFactory.create({}, create());
+    const file = await repositoryFileFactory.create(
+      {
+        repositoryId: repo.id,
+        status: 'skipped',
+        contentHash: null,
+        sizeBytes: null,
+      },
+      create(),
+    );
+    expect(file.contentHash).toBeNull();
+  });
+
+  it('requires a content hash for indexed and failed files', async () => {
+    const repo = await repositoryFactory.create({}, create());
+    const error = await failure(
+      repositoryFileFactory.create(
+        { repositoryId: repo.id, contentHash: null },
+        create(),
+      ),
+    );
+    expect(error.code).toBe('23514');
+  });
+
+  it('allows only one active index job per repository', async () => {
+    const repo = await repositoryFactory.create({}, create());
+    await indexJobFactory.create(
+      { repositoryId: repo.id, status: 'succeeded' },
+      create(),
+    );
+    await indexJobFactory.create(
+      { repositoryId: repo.id, status: 'running' },
+      create(),
+    );
+    const error = await failure(
+      indexJobFactory.create({ repositoryId: repo.id }, create()),
+    );
+    expect(error.code).toBe('23505');
+  });
+
   it('rejects a vector with the wrong dimension', async () => {
     const { repo, file } = await seed();
     const error = await failure(

@@ -140,6 +140,18 @@ describe('loadConfig', () => {
     assertNotLeaked((error as Error).message, CANARY_DB_PASSWORD);
   });
 
+  describe('indexing', () => {
+    it('defaults to an embedding concurrency of 2', () => {
+      expect(loadConfig({}).indexing).toEqual({ embedConcurrency: 2 });
+    });
+
+    it.each(['0', '9', 'abc'])('rejects concurrency %s', (value) => {
+      expect(() => loadConfig({ INDEXING_EMBED_CONCURRENCY: value })).toThrow(
+        ConfigError,
+      );
+    });
+  });
+
   describe('ingestion', () => {
     it('uses documented defaults', () => {
       expect(loadConfig({}).ingestion).toEqual({

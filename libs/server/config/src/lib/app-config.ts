@@ -78,6 +78,12 @@ const envSchema = z
       .pipe(z.array(z.string().max(256)).max(256)),
     CHUNK_MAX_CHARS: z.coerce.number().int().min(200).max(20000).default(2000),
     CHUNK_OVERLAP_CHARS: z.coerce.number().int().min(0).default(200),
+    INDEXING_EMBED_CONCURRENCY: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(8)
+      .default(2),
   })
   .superRefine((env, ctx) => {
     if (!env.API_ALLOW_NON_LOOPBACK && !LOOPBACK_HOSTS.has(env.API_HOST)) {
@@ -111,6 +117,7 @@ export interface AppConfig {
   requireGitDirectory: boolean;
   inference: InferenceConfig;
   ingestion: IngestionConfig;
+  indexing: IndexingConfig;
 }
 
 export interface InferenceConfig {
@@ -136,6 +143,11 @@ export interface IngestionConfig {
   excludePatterns: string[];
   chunkMaxChars: number;
   chunkOverlapChars: number;
+}
+
+export interface IndexingConfig {
+  /** Files embedded in parallel within one index job. */
+  embedConcurrency: number;
 }
 
 export const APP_CONFIG = Symbol('APP_CONFIG');
@@ -190,6 +202,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       excludePatterns: e.INGEST_EXCLUDE_PATTERNS,
       chunkMaxChars: e.CHUNK_MAX_CHARS,
       chunkOverlapChars: e.CHUNK_OVERLAP_CHARS,
+    },
+    indexing: {
+      embedConcurrency: e.INDEXING_EMBED_CONCURRENCY,
     },
   };
 }

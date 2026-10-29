@@ -1,0 +1,25 @@
+meta {
+  name: Register codebase
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/codebases
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "path": "{{repoPath}}"
+  }
+}
+
+vars:post-response {
+  codebaseId: res.body.id
+}
+
+assert {
+  res.status: eq 201
+}

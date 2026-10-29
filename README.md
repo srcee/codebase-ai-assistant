@@ -42,6 +42,8 @@ npm run start:web      # http://localhost:4200, proxies /api to the API
 
 A pre-commit hook runs the secret scan and Prettier on staged files, then `npm run test:coverage`. The commit is rejected if any project is below its coverage threshold, so start the test database first (`npm run db:test:up`).
 
+To call the API by hand, open the `bruno/` folder as a collection in [Bruno](https://www.usebruno.com) and select the `local` environment.
+
 ### Database
 
 PostgreSQL with pgvector runs in Docker (`docker-compose.yml`), bound to `127.0.0.1`, with data in the named volume `pgdata` and credentials from `.env`.
@@ -91,7 +93,7 @@ The API refuses to start on a non-loopback `API_HOST` unless `API_ALLOW_NON_LOOP
 
 ### Ingestion (file discovery and chunking)
 
-The `ingestion` module turns a registered repository into chunks. It has no endpoints and writes nothing to the database yet; the indexing pipeline (Stage 6) calls it. See [decision 0004](docs/decisions/0004-ingestion-discovery-and-chunking.md).
+The `ingestion` module turns a registered repository into chunks. It has no endpoints and writes nothing to the database; the `indexing` module calls it. See [decision 0004](docs/decisions/0004-ingestion-discovery-and-chunking.md).
 
 - `FileDiscoveryService.discover(canonicalPath)` walks the repository in a stable order and yields one entry per file or excluded directory: `included` (language, size, SHA-256 of the raw bytes, decoded text) or `skipped` with a reason. Links and junctions are never followed.
 - `ChunkingService.chunk(file)` returns chunks with `relativePath`, `language`, `symbolName?`, 1-based inclusive `startLine` and `endLine`, `content`, and a SHA-256 `chunkHash`. `CHUNKING_VERSION` identifies the algorithm.
@@ -100,6 +102,21 @@ The `ingestion` module turns a registered repository into chunks. It has no endp
 - Skip reasons are the only trace of a skipped file. Content, matches, and paths are never logged.
 - Failure modes: discovery throws `PathRejectedError` when the root is outside the allowed roots or no longer a repository, and `RepositoryRootChangedError` when the root is unreadable or resolves to a different path than the one registered (for example it was replaced by a link). Neither message contains a path.
 - The secret scan is deliberately conservative and favors skipping: documentation or tests that contain token-like examples can be skipped as `secret-content`.
+
+### Indexing
+
+The `indexing` module runs discovery, chunking, and embedding for a registered codebase and stores files and chunks. Jobs run inside the API process, one active job per codebase (enforced by a partial unique index). See [decision 0006](docs/decisions/0006-indexing-jobs.md).
+
+| Endpoint                               | Success                                                                                                                           |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /codebases/:id/index`            | `202` with the queued job; work continues in the background                                                                       |
+| `GET /codebases/:id/index-jobs/latest` | `200` with `{ job, issues }`: counters, status, sanitized `errorSummary`, and up to 500 skipped or failed files with their reason |
+
+- Incremental: a file is skipped when its content hash, embedding identity (`<runtime>/<model>`, for example `ollama/nomic-embed-text`), and `CHUNKING_VERSION` all match. Changed files are re-chunked; chunks whose hash already has a vector for the same identity in the same codebase reuse it, so renames and unchanged symbols cost no embedding calls. Changing `INFERENCE_RUNTIME`, `EMBEDDING_MODEL`, or `CHUNKING_VERSION` re-embeds everything on the next run.
+- Each file is written in one transaction. Rows for paths no longer discovered are removed after a successful walk.
+- Skipped files are stored with their reason and no hash or content.
+- Failure modes: `404` unknown codebase or no job yet; `409` a job is already active; `503` no `DATABASE_URL`. Inference unavailable, a missing model, a dimension mismatch, or a moved repository root fails the job with a fixed summary; a request the runtime rejects (for example input over the model context) fails that file only. Deleting a codebase stops its job before the next file. Jobs still active when the API stopped are marked `failed` on the next start.
+- Logs carry job and codebase ids, counts, and timings only.
 
 ### Local inference
 
@@ -167,6 +184,7 @@ Configuration is validated at startup; invalid values stop the API. See [.env.ex
 | `INGEST_EXCLUDE_PATTERNS`                                                                                      | empty                    | Comma-separated `.gitignore` patterns added to the built-in exclusions        |
 | `CHUNK_MAX_CHARS`                                                                                              | `2000`                   | Largest chunk in characters (200 to 20000)                                    |
 | `CHUNK_OVERLAP_CHARS`                                                                                          | `200`                    | Overlap between windows of a split symbol; must be below `CHUNK_MAX_CHARS`    |
+| `INDEXING_EMBED_CONCURRENCY`                                                                                   | `2`                      | Files embedded in parallel within one index job (1 to 8)                      |
 
 ## Contributing
 

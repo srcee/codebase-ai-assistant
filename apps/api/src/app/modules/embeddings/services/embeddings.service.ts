@@ -20,6 +20,12 @@ export class EmbeddingsService {
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
+  /** `<runtime>/<model>`; stored with every vector so a change forces a re-index. */
+  get identity(): string {
+    const { runtime, embeddingModel } = this.config.inference;
+    return `${runtime}/${embeddingModel}`;
+  }
+
   /** Returns one vector per input, in order. */
   async embed(
     texts: readonly string[],
