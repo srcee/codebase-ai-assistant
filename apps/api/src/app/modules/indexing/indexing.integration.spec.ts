@@ -415,6 +415,48 @@ describeWithDatabase('indexing API', (baseUrl) => {
       expect(jobs).toEqual([]);
     });
 
+    it('aborts a running job and records it as failed when the app shuts down', async () => {
+      const repo = await registerRepository(baseFiles());
+      let signal: AbortSignal | undefined;
+      let embedStarted: () => void = () => undefined;
+      const started = new Promise<void>((resolve) => (embedStarted = resolve));
+      const hangingEmbedBatch = (
+        _texts: readonly string[],
+        options?: { signal?: AbortSignal },
+      ) =>
+        new Promise<number[][]>((_resolve, reject) => {
+          signal = options?.signal;
+          signal?.addEventListener('abort', () =>
+            reject(new InferenceUnavailableError('network')),
+          );
+          embedStarted();
+        });
+      const shuttingDown = await createTestApp({
+        config,
+        overrides: [
+          {
+            provide: EMBEDDING_PORT,
+            useValue: { embedBatch: hangingEmbedBatch },
+          },
+        ],
+      });
+
+      await request(shuttingDown.getHttpServer())
+        .post(`/codebases/${repo.id}/index`)
+        .expect(202);
+      await started;
+      await shuttingDown.close();
+
+      expect(signal?.aborted).toBe(true);
+      const [job] = await handle.db
+        .select()
+        .from(indexJobs)
+        .where(eq(indexJobs.repositoryId, repo.id));
+      expect(job).toMatchObject({ status: 'failed' });
+      expect(job.errorSummary).not.toMatch(/restart/);
+      expect(await statusOf(repo.id)).toBe('failed');
+    });
+
     it('marks jobs left active by a previous process as failed', async () => {
       const dbOptions = { transient: { db: handle.db } };
       const repository = await repositoryFactory.create(

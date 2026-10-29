@@ -2,7 +2,7 @@ import {
   Inject,
   Injectable,
   Logger,
-  type OnApplicationShutdown,
+  type BeforeApplicationShutdown,
 } from '@nestjs/common';
 import type { IndexJobResponse } from '@codebase-ai/contracts';
 import { APP_CONFIG, type AppConfig } from '@codebase-ai/server-config';
@@ -47,7 +47,7 @@ function countersFor(outcome: FileOutcome): Partial<IndexJobCounters> {
 
 /** Runs index jobs in the API process; one active job per repository is enforced by the database. */
 @Injectable()
-export class IndexJobRunnerService implements OnApplicationShutdown {
+export class IndexJobRunnerService implements BeforeApplicationShutdown {
   private readonly logger = new Logger(IndexJobRunnerService.name);
   private readonly running = new Map<
     string,
@@ -85,7 +85,8 @@ export class IndexJobRunnerService implements OnApplicationShutdown {
     }
   }
 
-  async onApplicationShutdown(): Promise<void> {
+  // Runs before any onApplicationShutdown hook, so the database pool is still open.
+  async beforeApplicationShutdown(): Promise<void> {
     for (const job of this.running.values()) job.controller.abort();
     await this.whenIdle();
   }
