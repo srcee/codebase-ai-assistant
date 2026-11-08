@@ -1,6 +1,5 @@
 export type RetrievalSource = 'vector' | 'lexical';
 
-/** A chunk found by one search, with where it can be cited from. */
 export interface SearchCandidate {
   chunkId: string;
   repositoryId: string;

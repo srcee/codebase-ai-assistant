@@ -42,7 +42,7 @@ export interface LexicalQuery {
   phrase: string;
 }
 
-/** Turns free text into an OR query of the terms indexed in `search_terms`; undefined when nothing searchable remains. */
+/** Undefined when no searchable term remains. */
 export function buildLexicalQuery(text: string): LexicalQuery | undefined {
   const terms = searchTermsFor(text)
     .split(' ')

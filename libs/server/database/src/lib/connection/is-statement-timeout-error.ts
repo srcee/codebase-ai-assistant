@@ -1,7 +1,7 @@
 const QUERY_CANCELED = '57014';
 const MAX_CAUSE_DEPTH = 5;
 
-/** True when Postgres cancelled a statement for exceeding statement_timeout, including when the driver wraps the error. */
+/** Also matches when the driver wraps the Postgres error as the cause. */
 export function isStatementTimeoutError(error: unknown): boolean {
   let current: unknown = error;
   for (let depth = 0; depth < MAX_CAUSE_DEPTH; depth++) {

@@ -8,7 +8,6 @@ import { candidateColumns } from '../utils/candidate-columns';
 
 const { codeChunks, repositories, repositoryFiles } = schema;
 
-/** Full-text matches within the given repositories; an exact phrase ranks above scattered terms. */
 @Injectable()
 export class LexicalSearchService {
   constructor(

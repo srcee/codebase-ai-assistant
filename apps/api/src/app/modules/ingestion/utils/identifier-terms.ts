@@ -18,10 +18,7 @@ export function splitIdentifier(identifier: string): string[] {
   return parts.length > 1 ? parts : [];
 }
 
-/**
- * Space-separated, de-duplicated lower-case words of `text` plus the parts of camelCase words.
- * Postgres keeps dotted and path-like text such as `this.userService.findOne` as one lexeme, so full-text search matches these words instead.
- */
+/** Postgres keeps dotted and path-like text as one lexeme, so the words are indexed on their own. */
 export function searchTermsFor(text: string): string {
   const terms = new Set<string>();
   for (const [word] of text.matchAll(WORD)) {

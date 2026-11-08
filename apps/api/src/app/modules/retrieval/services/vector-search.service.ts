@@ -14,7 +14,6 @@ export interface VectorSearchParams {
   embeddingModel: string;
 }
 
-/** Nearest chunks by cosine distance within the given repositories. */
 @Injectable()
 export class VectorSearchService {
   constructor(

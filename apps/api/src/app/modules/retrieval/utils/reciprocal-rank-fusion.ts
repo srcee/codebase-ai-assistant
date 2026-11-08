@@ -4,7 +4,7 @@ import type {
   SearchCandidate,
 } from '../types/search-candidate';
 
-/** Merges two ranked lists by summing 1 / (k + rank); ties go to the better single rank, then the chunk id. */
+/** Ties go to the better single rank, then the chunk id, so the order is deterministic. */
 export function reciprocalRankFusion(
   vectorResults: readonly SearchCandidate[],
   lexicalResults: readonly SearchCandidate[],
