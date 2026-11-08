@@ -9,7 +9,7 @@ import {
 } from '../shared/columns';
 
 // 'simple' keeps identifiers and error strings intact instead of stemming them.
-// search_terms holds the parts of camelCase identifiers; the symbol name ranks highest.
+// search_terms holds the words of the chunk and the parts of camelCase words, because the parser keeps dotted text as one lexeme; the symbol name ranks highest.
 const searchText = sql`setweight(to_tsvector('simple', coalesce(symbol_name, '')), 'A') || to_tsvector('simple', content) || setweight(to_tsvector('simple', search_terms), 'C')`;
 
 export const columns = {

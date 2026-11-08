@@ -228,6 +228,59 @@ describe('loadConfig', () => {
     });
   });
 
+  describe('retrieval', () => {
+    it('uses documented defaults', () => {
+      expect(loadConfig({}).retrieval).toEqual({
+        candidateLimit: 40,
+        maxChunks: 8,
+        maxContextChars: 12000,
+        rrfK: 60,
+        hnswEfSearch: 100,
+        debugEndpoint: false,
+      });
+    });
+
+    it('enables the debug endpoint only for the exact value true', () => {
+      expect(
+        loadConfig({ RETRIEVAL_DEBUG_ENDPOINT: 'true' }).retrieval
+          .debugEndpoint,
+      ).toBe(true);
+      expect(() => loadConfig({ RETRIEVAL_DEBUG_ENDPOINT: '1' })).toThrow(
+        ConfigError,
+      );
+    });
+
+    it.each([
+      ['RETRIEVAL_CANDIDATE_LIMIT', '0'],
+      ['RETRIEVAL_CANDIDATE_LIMIT', '201'],
+      ['RETRIEVAL_MAX_CHUNKS', '0'],
+      ['RETRIEVAL_MAX_CHUNKS', '51'],
+      ['RETRIEVAL_RRF_K', '0'],
+      ['RETRIEVAL_HNSW_EF_SEARCH', '1001'],
+      ['RETRIEVAL_MAX_CONTEXT_CHARS', '100'],
+    ])('rejects %s=%s', (key, value) => {
+      expect(() => loadConfig({ [key]: value })).toThrow(ConfigError);
+    });
+
+    it('requires the candidate limit to cover the result size', () => {
+      expect(() =>
+        loadConfig({
+          RETRIEVAL_CANDIDATE_LIMIT: '5',
+          RETRIEVAL_MAX_CHUNKS: '6',
+        }),
+      ).toThrow(ConfigError);
+    });
+
+    it('requires the context budget to hold one full chunk', () => {
+      expect(() =>
+        loadConfig({
+          CHUNK_MAX_CHARS: '5000',
+          RETRIEVAL_MAX_CONTEXT_CHARS: '4000',
+        }),
+      ).toThrow(ConfigError);
+    });
+  });
+
   describe('indexing', () => {
     it('defaults to an embedding concurrency of 2', () => {
       expect(loadConfig({}).indexing).toEqual({ embedConcurrency: 2 });

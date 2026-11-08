@@ -1,26 +1,29 @@
 import { sql } from 'drizzle-orm';
-import { describeWithDatabase } from '../../testing';
+import { describeWithDatabase, prepareDedicatedDatabase } from '../../testing';
 import { createDatabase, type DatabaseHandle } from './create-database';
 import { isStatementTimeoutError } from './is-statement-timeout-error';
 
-describeWithDatabase('database pool settings', (url) => {
+// A dedicated database keeps this suite clear of the schema suite, which drops the public schema.
+describeWithDatabase('database pool settings', (baseUrl) => {
   let handle: DatabaseHandle;
 
-  beforeAll(() => {
-    handle = createDatabase(url, {
+  beforeAll(async () => {
+    const prepared = await prepareDedicatedDatabase(baseUrl, 'pool');
+    await prepared.handle.pool.end();
+    handle = createDatabase(prepared.url, {
       poolMax: 2,
       idleTimeoutMs: 1000,
-      statementTimeoutMs: 100,
+      statementTimeoutMs: 250,
     });
   });
 
   afterAll(async () => {
-    await handle.pool.end();
+    await handle?.pool.end();
   });
 
   it('cancels a statement that runs past the timeout', async () => {
     const error = await handle.db
-      .execute(sql`select pg_sleep(2)`)
+      .execute(sql`select pg_sleep(3)`)
       .then(() => undefined)
       .catch((e: unknown) => e);
     expect(isStatementTimeoutError(error)).toBe(true);

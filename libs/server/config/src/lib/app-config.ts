@@ -18,6 +18,11 @@ const enabledByDefaultFlag = z
   .default('true')
   .transform((value) => value === 'true');
 
+const disabledByDefaultFlag = z
+  .enum(['true', 'false'])
+  .default('false')
+  .transform((value) => value === 'true');
+
 const commaList = (value: string): string[] =>
   value
     .split(',')
@@ -109,6 +114,27 @@ const envSchema = z
       .min(1)
       .max(8)
       .default(2),
+    RETRIEVAL_CANDIDATE_LIMIT: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(200)
+      .default(40),
+    RETRIEVAL_MAX_CHUNKS: z.coerce.number().int().min(1).max(50).default(8),
+    RETRIEVAL_MAX_CONTEXT_CHARS: z.coerce
+      .number()
+      .int()
+      .min(200)
+      .max(200000)
+      .default(12000),
+    RETRIEVAL_RRF_K: z.coerce.number().int().min(1).max(1000).default(60),
+    RETRIEVAL_HNSW_EF_SEARCH: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(1000)
+      .default(100),
+    RETRIEVAL_DEBUG_ENDPOINT: disabledByDefaultFlag,
   })
   .superRefine((env, ctx) => {
     if (!LOOPBACK_HOSTS.has(env.API_HOST)) {
@@ -132,6 +158,20 @@ const envSchema = z
         message: 'must be smaller than DATABASE_POOL_MAX',
       });
     }
+    if (env.RETRIEVAL_CANDIDATE_LIMIT < env.RETRIEVAL_MAX_CHUNKS) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['RETRIEVAL_MAX_CHUNKS'],
+        message: 'must not exceed RETRIEVAL_CANDIDATE_LIMIT',
+      });
+    }
+    if (env.RETRIEVAL_MAX_CONTEXT_CHARS < env.CHUNK_MAX_CHARS) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['RETRIEVAL_MAX_CONTEXT_CHARS'],
+        message: 'must be at least CHUNK_MAX_CHARS',
+      });
+    }
     if (env.INGEST_MAX_FILE_BYTES > env.INGEST_MAX_TOTAL_BYTES) {
       ctx.addIssue({
         code: 'custom',
@@ -151,6 +191,7 @@ export interface AppConfig {
   inference: InferenceConfig;
   ingestion: IngestionConfig;
   indexing: IndexingConfig;
+  retrieval: RetrievalConfig;
 }
 
 export interface DatabaseConfig {
@@ -192,6 +233,21 @@ export interface IngestionConfig {
 export interface IndexingConfig {
   /** Files embedded in parallel within one index job. */
   embedConcurrency: number;
+}
+
+export interface RetrievalConfig {
+  /** Chunks each search (vector, lexical) contributes before fusion. */
+  candidateLimit: number;
+  /** Most chunks returned after fusion. */
+  maxChunks: number;
+  /** Most characters of chunk content returned after fusion. */
+  maxContextChars: number;
+  /** Reciprocal Rank Fusion constant. */
+  rrfK: number;
+  /** pgvector hnsw.ef_search for each vector query. */
+  hnswEfSearch: number;
+  /** Exposes POST /search for inspecting retrieval. */
+  debugEndpoint: boolean;
 }
 
 export const APP_CONFIG = Symbol('APP_CONFIG');
@@ -257,6 +313,14 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     },
     indexing: {
       embedConcurrency: e.INDEXING_EMBED_CONCURRENCY,
+    },
+    retrieval: {
+      candidateLimit: e.RETRIEVAL_CANDIDATE_LIMIT,
+      maxChunks: e.RETRIEVAL_MAX_CHUNKS,
+      maxContextChars: e.RETRIEVAL_MAX_CONTEXT_CHARS,
+      rrfK: e.RETRIEVAL_RRF_K,
+      hnswEfSearch: e.RETRIEVAL_HNSW_EF_SEARCH,
+      debugEndpoint: e.RETRIEVAL_DEBUG_ENDPOINT,
     },
   };
 }

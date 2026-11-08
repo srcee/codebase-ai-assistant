@@ -22,6 +22,7 @@ import { GenerationModule } from './modules/generation/generation.module';
 import { IndexingModule } from './modules/indexing/indexing.module';
 import { IngestionModule } from './modules/ingestion/ingestion.module';
 import { PrivacyModule } from './modules/privacy/privacy.module';
+import { RetrievalModule } from './modules/retrieval/retrieval.module';
 
 @Global()
 @Module({
@@ -35,6 +36,7 @@ import { PrivacyModule } from './modules/privacy/privacy.module';
     CodebasesModule,
     IngestionModule,
     IndexingModule,
+    RetrievalModule,
   ],
   providers: [
     { provide: APP_CONFIG, useFactory: () => loadConfig() },
