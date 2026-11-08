@@ -21,7 +21,7 @@ export class EmbeddingsService {
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
-  /** `<runtime>/<model>`, plus a short hash of the document prefix when one is set; stored with every vector so a change forces a re-index. */
+  /** Includes a short hash of the document prefix when set, so changing it forces a re-index. */
   get identity(): string {
     const { runtime, embeddingModel, embeddingDocumentPrefix } =
       this.config.inference;
@@ -34,7 +34,6 @@ export class EmbeddingsService {
     return `${base}+${hash}`;
   }
 
-  /** Returns one vector per text, in order, embedded as indexed content. */
   async embedDocuments(
     texts: readonly string[],
     options: InferenceRequestOptions = {},
@@ -46,7 +45,6 @@ export class EmbeddingsService {
     );
   }
 
-  /** Embeds a search query so it can be compared with indexed content. */
   async embedQuery(
     text: string,
     options: InferenceRequestOptions = {},

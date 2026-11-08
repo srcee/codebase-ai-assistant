@@ -6,3 +6,4 @@
 package-lock.json
 /.husky/_
 /libs/server/database/migrations
+/libs/server/testing/eval/corpus

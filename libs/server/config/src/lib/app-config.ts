@@ -238,11 +238,8 @@ export interface IndexingConfig {
 export interface RetrievalConfig {
   /** Chunks each search (vector, lexical) contributes before fusion. */
   candidateLimit: number;
-  /** Most chunks returned after fusion. */
   maxChunks: number;
-  /** Most characters of chunk content returned after fusion. */
   maxContextChars: number;
-  /** Reciprocal Rank Fusion constant. */
   rrfK: number;
   /** pgvector hnsw.ef_search for each vector query. */
   hnswEfSearch: number;

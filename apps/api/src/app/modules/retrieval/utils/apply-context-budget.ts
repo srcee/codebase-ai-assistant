@@ -11,7 +11,7 @@ const overlaps = (a: RetrievedChunk, b: RetrievedChunk): boolean =>
   a.startLine <= b.endLine &&
   b.startLine <= a.endLine;
 
-/** Walks chunks in rank order, dropping any that overlap a kept chunk of the same file or would exceed the budget. */
+/** Keeps rank order; a chunk that does not fit is skipped and smaller ones after it still count. */
 export function applyContextBudget(
   ranked: readonly RetrievedChunk[],
   budget: ContextBudget,

@@ -14,7 +14,6 @@ export interface RetrievalRequest {
   repositoryIds: readonly string[];
 }
 
-/** Hybrid search: vector and full-text candidates fused with RRF, then cut to the context budget. */
 @Injectable()
 export class RetrievalService {
   private readonly logger = new Logger(RetrievalService.name);

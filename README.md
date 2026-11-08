@@ -152,6 +152,20 @@ The `retrieval` module finds the chunks that answer a question. `RetrievalServic
 - Failure modes: `503` when the embedding model is unavailable (there is no lexical-only fallback), when `DATABASE_URL` is unset, or when a query exceeds `DATABASE_STATEMENT_TIMEOUT_MS`; `400` for an invalid body.
 - Logs carry counts and timings only, never the query or chunk content.
 
+#### Evaluation
+
+`libs/server/testing/eval` holds a synthetic 30-file project (`corpus/`, no real code or secrets) and a versioned set of questions (`questions.v1.json`) with the expected file and line range for each. The set covers identifiers, snake_case names, error strings, paraphrases, and cross-file questions. A spec checks that every range exists and contains its anchor text, and that the corpus passes the secret scan.
+
+`retrieval.eval.spec.ts` indexes the corpus into a dedicated `_eval_test` database with the real local embedding model, runs every question in vector, lexical, and hybrid mode, and writes `libs/server/testing/eval/reports/<label>.json` and `.md`. A result hits an expected location when it is in the same file and the line ranges overlap. The reports give Recall@5, Recall@10, MRR@10, p50 and p95 latency (including the query embedding for vector and hybrid), Recall@10 by category, indexing coverage, and the settings used. The result window is fixed at 10 chunks so Recall@10 can be measured; other `RETRIEVAL_*`, `CHUNK_*`, and `EMBEDDING_*` settings come from the environment, so a tuning run is the same command with different variables.
+
+```powershell
+npm run db:test:up
+$env:RUN_RETRIEVAL_EVAL = 'true'; $env:EVAL_LABEL = 'baseline'
+npx nx run api:test --skip-nx-cache --testPathPatterns=retrieval.eval
+```
+
+It needs the embedding runtime running with `EMBEDDING_MODEL` pulled and `TEST_DATABASE_URL` set, and it is skipped otherwise. The corpus is small, so absolute scores are optimistic; compare runs with each other, not with a target.
+
 ### Local inference
 
 Embeddings and chat run in a local runtime, [Ollama](https://ollama.com) by default. Install it, then pull the default models:

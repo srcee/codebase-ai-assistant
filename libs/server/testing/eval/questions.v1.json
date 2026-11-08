@@ -1,0 +1,536 @@
+{
+  "version": 1,
+  "corpus": "libs/server/testing/eval/corpus",
+  "questions": [
+    {
+      "id": "identifier-01",
+      "category": "identifier",
+      "question": "Where is computeInvoiceTotal defined?",
+      "expected": [
+        {
+          "path": "src/billing/invoice-calculator.ts",
+          "startLine": 20,
+          "endLine": 29,
+          "anchor": "export function computeInvoiceTotal"
+        }
+      ]
+    },
+    {
+      "id": "identifier-02",
+      "category": "identifier",
+      "question": "Show the applyDiscountCode function",
+      "expected": [
+        {
+          "path": "src/billing/invoice-calculator.ts",
+          "startLine": 31,
+          "endLine": 36,
+          "anchor": "export function applyDiscountCode"
+        }
+      ]
+    },
+    {
+      "id": "identifier-03",
+      "category": "identifier",
+      "question": "retryWithBackoff implementation",
+      "expected": [
+        {
+          "path": "src/http/retry-policy.ts",
+          "startLine": 9,
+          "endLine": 24,
+          "anchor": "export async function retryWithBackoff"
+        }
+      ]
+    },
+    {
+      "id": "identifier-04",
+      "category": "identifier",
+      "question": "TokenBucketLimiter class",
+      "expected": [
+        {
+          "path": "src/http/rate-limiter.ts",
+          "startLine": 1,
+          "endLine": 30,
+          "anchor": "export class TokenBucketLimiter"
+        }
+      ]
+    },
+    {
+      "id": "identifier-05",
+      "category": "identifier",
+      "question": "Where is isFeatureEnabled?",
+      "expected": [
+        {
+          "path": "src/config/feature-flags.ts",
+          "startLine": 13,
+          "endLine": 18,
+          "anchor": "export function isFeatureEnabled"
+        }
+      ]
+    },
+    {
+      "id": "identifier-06",
+      "category": "identifier",
+      "question": "vatRateForCountry",
+      "expected": [
+        {
+          "path": "src/billing/tax-rules.ts",
+          "startLine": 11,
+          "endLine": 20,
+          "anchor": "export function vatRateForCountry"
+        }
+      ]
+    },
+    {
+      "id": "identifier-07",
+      "category": "identifier",
+      "question": "chooseWarehouse function",
+      "expected": [
+        {
+          "path": "src/inventory/warehouse-picker.ts",
+          "startLine": 10,
+          "endLine": 26,
+          "anchor": "export function chooseWarehouse"
+        }
+      ]
+    },
+    {
+      "id": "identifier-08",
+      "category": "identifier",
+      "question": "Where does redactHeaders live?",
+      "expected": [
+        {
+          "path": "src/http/request-logger.ts",
+          "startLine": 10,
+          "endLine": 20,
+          "anchor": "export function redactHeaders"
+        }
+      ]
+    },
+    {
+      "id": "snake-case-01",
+      "category": "snake-case",
+      "question": "generate_sales_report",
+      "expected": [
+        {
+          "path": "tools/report_generator.py",
+          "startLine": 1,
+          "endLine": 32,
+          "anchor": "def generate_sales_report"
+        }
+      ]
+    },
+    {
+      "id": "snake-case-02",
+      "category": "snake-case",
+      "question": "What does parse_price_cell do?",
+      "expected": [
+        {
+          "path": "tools/csv_importer.py",
+          "startLine": 26,
+          "endLine": 32,
+          "anchor": "def parse_price_cell"
+        }
+      ]
+    },
+    {
+      "id": "snake-case-03",
+      "category": "snake-case",
+      "question": "import_products_csv",
+      "expected": [
+        {
+          "path": "tools/csv_importer.py",
+          "startLine": 9,
+          "endLine": 24,
+          "anchor": "def import_products_csv"
+        }
+      ]
+    },
+    {
+      "id": "snake-case-04",
+      "category": "snake-case",
+      "question": "best_selling_skus",
+      "expected": [
+        {
+          "path": "tools/report_generator.py",
+          "startLine": 26,
+          "endLine": 32,
+          "anchor": "def best_selling_skus"
+        }
+      ]
+    },
+    {
+      "id": "snake-case-05",
+      "category": "snake-case",
+      "question": "KEEP_COPIES",
+      "expected": [
+        {
+          "path": "scripts/backup-database.sh",
+          "startLine": 1,
+          "endLine": 17,
+          "anchor": "KEEP_COPIES="
+        }
+      ]
+    },
+    {
+      "id": "snake-case-06",
+      "category": "snake-case",
+      "question": "Where is SHOP_DATABASE_URL used?",
+      "expected": [
+        {
+          "path": "src/config/load-config.ts",
+          "startLine": 9,
+          "endLine": 16,
+          "anchor": "SHOP_DATABASE_URL"
+        },
+        {
+          "path": "scripts/backup-database.sh",
+          "startLine": 1,
+          "endLine": 17,
+          "anchor": "SHOP_DATABASE_URL"
+        }
+      ]
+    },
+    {
+      "id": "error-string-01",
+      "category": "error-string",
+      "question": "Insufficient stock for reservation",
+      "expected": [
+        {
+          "path": "src/inventory/stock-service.ts",
+          "startLine": 14,
+          "endLine": 22,
+          "anchor": "Insufficient stock for reservation"
+        }
+      ]
+    },
+    {
+      "id": "error-string-02",
+      "category": "error-string",
+      "question": "Which code throws \"Refund window of 30 days has passed\"?",
+      "expected": [
+        {
+          "path": "src/billing/refund-service.ts",
+          "startLine": 16,
+          "endLine": 23,
+          "anchor": "Refund window of 30 days has passed"
+        }
+      ]
+    },
+    {
+      "id": "error-string-03",
+      "category": "error-string",
+      "question": "Payment declined by issuer",
+      "expected": [
+        {
+          "path": "src/billing/payment-gateway.ts",
+          "startLine": 18,
+          "endLine": 30,
+          "anchor": "Payment declined by issuer"
+        }
+      ]
+    },
+    {
+      "id": "error-string-04",
+      "category": "error-string",
+      "question": "Error: Mail queue is full",
+      "expected": [
+        {
+          "path": "src/notifications/email-sender.ts",
+          "startLine": 32,
+          "endLine": 37,
+          "anchor": "Mail queue is full"
+        }
+      ]
+    },
+    {
+      "id": "error-string-05",
+      "category": "error-string",
+      "question": "Unsupported tax country",
+      "expected": [
+        {
+          "path": "src/billing/tax-rules.ts",
+          "startLine": 11,
+          "endLine": 20,
+          "anchor": "Unsupported tax country"
+        }
+      ]
+    },
+    {
+      "id": "error-string-06",
+      "category": "error-string",
+      "question": "Missing Authorization header",
+      "expected": [
+        {
+          "path": "src/auth/access-validator.ts",
+          "startLine": 7,
+          "endLine": 15,
+          "anchor": "Missing Authorization header"
+        }
+      ]
+    },
+    {
+      "id": "error-string-07",
+      "category": "error-string",
+      "question": "User already exists",
+      "expected": [
+        {
+          "path": "src/users/user-repository.ts",
+          "startLine": 15,
+          "endLine": 22,
+          "anchor": "User already exists"
+        }
+      ]
+    },
+    {
+      "id": "paraphrase-01",
+      "category": "paraphrase",
+      "question": "How do we stop two customers from buying the last item in stock?",
+      "expected": [
+        {
+          "path": "src/inventory/stock-service.ts",
+          "startLine": 14,
+          "endLine": 22,
+          "anchor": "reserveStock"
+        }
+      ]
+    },
+    {
+      "id": "paraphrase-02",
+      "category": "paraphrase",
+      "question": "What happens when a call to an upstream service fails temporarily? Is it tried again?",
+      "expected": [
+        {
+          "path": "src/http/retry-policy.ts",
+          "startLine": 9,
+          "endLine": 24,
+          "anchor": "retryWithBackoff"
+        },
+        {
+          "path": "src/http/http-client.ts",
+          "startLine": 20,
+          "endLine": 32,
+          "anchor": "retryWithBackoff"
+        }
+      ]
+    },
+    {
+      "id": "paraphrase-03",
+      "category": "paraphrase",
+      "question": "How is the price at the bottom of the basket worked out?",
+      "expected": [
+        {
+          "path": "web/cart-store.js",
+          "startLine": 14,
+          "endLine": 21,
+          "anchor": "export function cartTotal"
+        }
+      ]
+    },
+    {
+      "id": "paraphrase-04",
+      "category": "paraphrase",
+      "question": "How are user passwords stored safely?",
+      "expected": [
+        {
+          "path": "src/auth/password-hasher.ts",
+          "startLine": 6,
+          "endLine": 10,
+          "anchor": "export function hashPassword"
+        }
+      ]
+    },
+    {
+      "id": "paraphrase-05",
+      "category": "paraphrase",
+      "question": "How do we check a login attempt against the stored password without leaking timing information?",
+      "expected": [
+        {
+          "path": "src/auth/password-hasher.ts",
+          "startLine": 12,
+          "endLine": 19,
+          "anchor": "export function verifyPassword"
+        }
+      ]
+    },
+    {
+      "id": "paraphrase-06",
+      "category": "paraphrase",
+      "question": "Which warehouse ships an order?",
+      "expected": [
+        {
+          "path": "src/inventory/warehouse-picker.ts",
+          "startLine": 10,
+          "endLine": 26,
+          "anchor": "export function chooseWarehouse"
+        }
+      ]
+    },
+    {
+      "id": "paraphrase-07",
+      "category": "paraphrase",
+      "question": "How long can someone be inactive before they are signed out?",
+      "expected": [
+        {
+          "path": "src/auth/session-store.ts",
+          "startLine": 14,
+          "endLine": 30,
+          "anchor": "getSession"
+        }
+      ]
+    },
+    {
+      "id": "paraphrase-08",
+      "category": "paraphrase",
+      "question": "How are amounts shown to customers in their local currency?",
+      "expected": [
+        {
+          "path": "web/format-price.js",
+          "startLine": 1,
+          "endLine": 10,
+          "anchor": "export function formatPrice"
+        }
+      ]
+    },
+    {
+      "id": "paraphrase-09",
+      "category": "paraphrase",
+      "question": "How are delivery dates calculated so that weekends are skipped?",
+      "expected": [
+        {
+          "path": "src/utils/date-utils.ts",
+          "startLine": 8,
+          "endLine": 17,
+          "anchor": "export function addBusinessDays"
+        }
+      ]
+    },
+    {
+      "id": "paraphrase-10",
+      "category": "paraphrase",
+      "question": "Who gets a new feature first during a gradual release?",
+      "expected": [
+        {
+          "path": "src/config/feature-flags.ts",
+          "startLine": 13,
+          "endLine": 23,
+          "anchor": "rolloutBucket"
+        }
+      ]
+    },
+    {
+      "id": "paraphrase-11",
+      "category": "paraphrase",
+      "question": "How do we hide credentials before request logs are shared?",
+      "expected": [
+        {
+          "path": "src/http/request-logger.ts",
+          "startLine": 10,
+          "endLine": 20,
+          "anchor": "redactHeaders"
+        }
+      ]
+    },
+    {
+      "id": "paraphrase-12",
+      "category": "paraphrase",
+      "question": "How do we keep disk usage down for old log files?",
+      "expected": [
+        {
+          "path": "scripts/rotate-logs.sh",
+          "startLine": 1,
+          "endLine": 12,
+          "anchor": "gzip"
+        }
+      ]
+    },
+    {
+      "id": "paraphrase-13",
+      "category": "paraphrase",
+      "question": "How is a supplier's product list loaded into the catalogue?",
+      "expected": [
+        {
+          "path": "tools/csv_importer.py",
+          "startLine": 9,
+          "endLine": 24,
+          "anchor": "def import_products_csv"
+        }
+      ]
+    },
+    {
+      "id": "cross-file-01",
+      "category": "cross-file",
+      "question": "What happens after a customer signs up?",
+      "expected": [
+        {
+          "path": "src/users/user-service.ts",
+          "startLine": 12,
+          "endLine": 29,
+          "anchor": "registerUser"
+        },
+        {
+          "path": "src/notifications/email-sender.ts",
+          "startLine": 11,
+          "endLine": 17,
+          "anchor": "sendWelcomeEmail"
+        }
+      ]
+    },
+    {
+      "id": "cross-file-02",
+      "category": "cross-file",
+      "question": "How is an order paid for, and what happens if it is refunded?",
+      "expected": [
+        {
+          "path": "src/billing/payment-gateway.ts",
+          "startLine": 18,
+          "endLine": 30,
+          "anchor": "chargeCard"
+        },
+        {
+          "path": "src/billing/refund-service.ts",
+          "startLine": 16,
+          "endLine": 23,
+          "anchor": "refundOrder"
+        }
+      ]
+    },
+    {
+      "id": "cross-file-03",
+      "category": "cross-file",
+      "question": "Which code decides how much tax is added to an invoice?",
+      "expected": [
+        {
+          "path": "src/billing/invoice-calculator.ts",
+          "startLine": 20,
+          "endLine": 29,
+          "anchor": "computeInvoiceTotal"
+        },
+        {
+          "path": "src/billing/tax-rules.ts",
+          "startLine": 11,
+          "endLine": 20,
+          "anchor": "vatRateForCountry"
+        }
+      ]
+    },
+    {
+      "id": "cross-file-04",
+      "category": "cross-file",
+      "question": "How does a thrown error end up as an API response?",
+      "expected": [
+        {
+          "path": "src/errors/error-handler.ts",
+          "startLine": 8,
+          "endLine": 20,
+          "anchor": "toHttpResponse"
+        },
+        {
+          "path": "src/errors/app-errors.ts",
+          "startLine": 1,
+          "endLine": 30,
+          "anchor": "class AppError"
+        }
+      ]
+    }
+  ]
+}

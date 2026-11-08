@@ -26,7 +26,7 @@ Use Drizzle ORM with the `pg` driver and `drizzle-kit` for migrations.
 - Migration `0000` enables the `vector` extension (custom SQL); `0001` creates the schema.
 - Vector and hybrid retrieval queries (Stage 7) may use raw SQL through the `sql` template.
 - The embedding dimension (768, `nomic-embed-text`) is a constant in the schema and in config (`EMBEDDING_DIMENSIONS`, default 768). `/health` reports `degraded` when the column dimension differs from config. Changing the model dimension needs a new migration and a re-index.
-- The full-text column uses the `simple` configuration so identifiers and error strings are not stemmed. CamelCase splitting, if needed, belongs in Stage 7.
+- The full-text column uses the `simple` configuration so identifiers and error strings are not stemmed. CamelCase splitting is done by the app and stored with the chunk; see decision 0008.
 
 ## Consequences
 
