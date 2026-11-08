@@ -22,7 +22,7 @@ export class DatabaseService implements OnApplicationShutdown {
   constructor(@Inject(APP_CONFIG) config: AppConfig) {
     // The pool connects lazily, so the API can start without a reachable database.
     this.handle = config.databaseUrl
-      ? createDatabase(config.databaseUrl)
+      ? createDatabase(config.databaseUrl, config.database)
       : undefined;
   }
 

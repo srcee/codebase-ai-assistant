@@ -44,6 +44,19 @@ const envSchema = z
     LOG_LEVEL: z.enum(LOG_LEVELS).default('log'),
     LOG_FORMAT: z.enum(LOG_FORMATS).default('text'),
     DATABASE_URL: z.url().optional(),
+    DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(100).default(10),
+    DATABASE_IDLE_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .min(1000)
+      .max(3600000)
+      .default(10000),
+    DATABASE_STATEMENT_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(600000)
+      .default(30000),
     ALLOWED_REPO_ROOTS: z
       .string()
       .default('')
@@ -103,6 +116,13 @@ const envSchema = z
         message: 'must be smaller than CHUNK_MAX_CHARS',
       });
     }
+    if (env.INDEXING_EMBED_CONCURRENCY >= env.DATABASE_POOL_MAX) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['INDEXING_EMBED_CONCURRENCY'],
+        message: 'must be smaller than DATABASE_POOL_MAX',
+      });
+    }
     if (env.INGEST_MAX_FILE_BYTES > env.INGEST_MAX_TOTAL_BYTES) {
       ctx.addIssue({
         code: 'custom',
@@ -116,11 +136,19 @@ export interface AppConfig {
   api: { host: string; port: number; tokenFile: string };
   logging: { level: LogLevel; format: LogFormat };
   databaseUrl?: string;
+  database: DatabaseConfig;
   allowedRepoRoots: string[];
   requireGitDirectory: boolean;
   inference: InferenceConfig;
   ingestion: IngestionConfig;
   indexing: IndexingConfig;
+}
+
+export interface DatabaseConfig {
+  poolMax: number;
+  idleTimeoutMs: number;
+  /** Server-side limit per statement; a slower query is cancelled. */
+  statementTimeoutMs: number;
 }
 
 export interface InferenceConfig {
@@ -186,6 +214,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     },
     logging: { level: e.LOG_LEVEL, format: e.LOG_FORMAT },
     databaseUrl: e.DATABASE_URL,
+    database: {
+      poolMax: e.DATABASE_POOL_MAX,
+      idleTimeoutMs: e.DATABASE_IDLE_TIMEOUT_MS,
+      statementTimeoutMs: e.DATABASE_STATEMENT_TIMEOUT_MS,
+    },
     allowedRepoRoots: e.ALLOWED_REPO_ROOTS,
     requireGitDirectory: e.REPO_REQUIRE_GIT_DIR,
     inference: {

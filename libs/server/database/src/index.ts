@@ -1,4 +1,5 @@
 export * from './lib/connection/create-database';
+export * from './lib/connection/is-statement-timeout-error';
 export * from './lib/connection/migrate';
 export * from './lib/nest/database-not-configured.error';
 export * from './lib/nest/database.module';

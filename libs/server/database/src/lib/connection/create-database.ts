@@ -9,8 +9,25 @@ export interface DatabaseHandle {
   db: Database;
 }
 
-export function createDatabase(connectionString: string): DatabaseHandle {
-  const pool = new Pool({ connectionString, connectionTimeoutMillis: 3000 });
+export interface PoolSettings {
+  poolMax: number;
+  idleTimeoutMs: number;
+  statementTimeoutMs: number;
+}
+
+export function createDatabase(
+  connectionString: string,
+  settings?: PoolSettings,
+): DatabaseHandle {
+  const pool = new Pool({
+    connectionString,
+    connectionTimeoutMillis: 3000,
+    ...(settings && {
+      max: settings.poolMax,
+      idleTimeoutMillis: settings.idleTimeoutMs,
+      statement_timeout: settings.statementTimeoutMs,
+    }),
+  });
   // Idle-client errors would otherwise crash the process; they surface on the next query.
   pool.on('error', () => undefined);
   return { pool, db: drizzle(pool, { schema }) };
