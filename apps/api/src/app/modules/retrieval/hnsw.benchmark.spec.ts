@@ -85,10 +85,15 @@ if (!enabled) {
         RETRIEVAL_HNSW_EF_SEARCH: String(efSearch),
       });
 
-    const exactIds = (vector: number[], repositoryId: string) =>
+    // The planner may ignore the index, so this forces it to measure the index itself.
+    const hnswIds = (
+      vector: number[],
+      repositoryId: string,
+      efSearch: number,
+    ) =>
       handle.db.transaction(async (tx) => {
         await tx.execute(
-          sql`select set_config('enable_indexscan', 'off', true)`,
+          sql`select set_config('enable_sort', 'off', true), set_config('enable_seqscan', 'off', true), set_config('enable_bitmapscan', 'off', true), set_config('hnsw.iterative_scan', 'relaxed_order', true), set_config('hnsw.ef_search', ${String(efSearch)}, true)`,
         );
         const rows = await tx
           .select({ id: codeChunks.id })
@@ -99,7 +104,7 @@ if (!enabled) {
               eq(codeChunks.embeddingModel, MODEL),
             ),
           )
-          .orderBy(cosineDistance(codeChunks.embedding, vector), codeChunks.id)
+          .orderBy(cosineDistance(codeChunks.embedding, vector))
           .limit(TOP);
         return rows.map((row) => row.id);
       });
@@ -108,6 +113,37 @@ if (!enabled) {
       const started = performance.now();
       const result = await work();
       return { result, ms: performance.now() - started };
+    };
+
+    /** One untimed pass first, so cold caches do not count. */
+    const measure = async (
+      queries: { vector: number[]; repositoryId: string }[],
+      search: (query: {
+        vector: number[];
+        repositoryId: string;
+      }) => Promise<string[]>,
+    ) => {
+      for (const query of queries) await search(query);
+      const ids: string[][] = [];
+      const times: number[] = [];
+      for (const query of queries) {
+        const { result, ms } = await timed(() => search(query));
+        ids.push(result);
+        times.push(ms);
+      }
+      return { ids, times };
+    };
+
+    const summary = (times: number[], ids?: string[][], truth?: string[][]) => {
+      const latency = `p50 ${percentile(times, 50).toFixed(1)} ms, p95 ${percentile(times, 95).toFixed(1)} ms`;
+      if (!ids || !truth) return latency;
+      const recall =
+        ids.reduce(
+          (sum, found, index) =>
+            sum + truth[index].filter((id) => found.includes(id)).length / TOP,
+          0,
+        ) / ids.length;
+      return `recall@${TOP} ${(recall * 100).toFixed(1)}%, ${latency}`;
     };
 
     beforeAll(async () => {
@@ -160,25 +196,30 @@ if (!enabled) {
       await handle?.pool.end();
     });
 
-    it('compares HNSW parameters with an exact scan on a repository-filtered query', async () => {
+    it('compares the production query without an index, with the planner choice, and with HNSW forced', async () => {
       const queries = Array.from({ length: queryCount }, (_, index) => ({
         vector: sample(),
         repositoryId: repositoryIds[index % REPOSITORIES],
       }));
+      const production = (efSearch: number) => {
+        const service = new VectorSearchService(database, config(efSearch));
+        return async (query: { vector: number[]; repositoryId: string }) =>
+          (
+            await service.search({
+              vector: query.vector,
+              repositoryIds: [query.repositoryId],
+              embeddingModel: MODEL,
+            })
+          ).map((candidate) => candidate.chunkId);
+      };
 
-      const truth: string[][] = [];
-      const exactTimes: number[] = [];
-      for (const query of queries) {
-        const { result, ms } = await timed(() =>
-          exactIds(query.vector, query.repositoryId),
-        );
-        truth.push(result);
-        exactTimes.push(ms);
-      }
+      // Without a vector index the query is exact, so it is the ground truth for recall.
+      const exact = await measure(queries, production(100));
+      const truth = exact.ids;
 
       const lines = [
         `HNSW benchmark: ${chunkCount} chunks, ${REPOSITORIES} repositories, ${queryCount} queries filtered to one repository, top ${TOP}`,
-        `exact scan: p50 ${percentile(exactTimes, 50).toFixed(1)} ms, p95 ${percentile(exactTimes, 95).toFixed(1)} ms`,
+        `no vector index (exact): ${summary(exact.times)}`,
       ];
 
       for (const variant of VARIANTS) {
@@ -204,23 +245,13 @@ if (!enabled) {
         );
 
         for (const efSearch of EF_SEARCH_VALUES) {
-          const service = new VectorSearchService(database, config(efSearch));
-          let recall = 0;
-          const times: number[] = [];
-          for (const [index, query] of queries.entries()) {
-            const { result, ms } = await timed(() =>
-              service.search({
-                vector: query.vector,
-                repositoryIds: [query.repositoryId],
-                embeddingModel: MODEL,
-              }),
-            );
-            times.push(ms);
-            const found = new Set(result.map((candidate) => candidate.chunkId));
-            recall += truth[index].filter((id) => found.has(id)).length / TOP;
-          }
+          const planner = await measure(queries, production(efSearch));
+          const forced = await measure(queries, async (query) =>
+            hnswIds(query.vector, query.repositoryId, efSearch),
+          );
           lines.push(
-            `  ef_search ${efSearch}: recall@${TOP} ${((recall / queries.length) * 100).toFixed(1)}%, p50 ${percentile(times, 50).toFixed(1)} ms, p95 ${percentile(times, 95).toFixed(1)} ms`,
+            `  ef_search ${efSearch}: planner choice ${summary(planner.times, planner.ids, truth)}`,
+            `  ef_search ${efSearch}: HNSW forced ${summary(forced.times, forced.ids, truth)}`,
           );
         }
         await handle.pool.query('drop index code_chunks_embedding_hnsw_idx');
