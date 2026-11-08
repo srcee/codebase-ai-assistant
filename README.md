@@ -119,7 +119,7 @@ Logs go to stdout and are never shipped anywhere. `LOG_LEVEL` (`error`, `warn`, 
 The `ingestion` module turns a registered repository into chunks. It has no endpoints and writes nothing to the database; the `indexing` module calls it. See [decision 0004](docs/decisions/0004-ingestion-discovery-and-chunking.md).
 
 - `FileDiscoveryService.discover(canonicalPath)` walks the repository in a stable order and yields one entry per file or excluded directory: `included` (language, size, SHA-256 of the raw bytes, decoded text) or `skipped` with a reason. Links and junctions are never followed.
-- `ChunkingService.chunk(file)` returns chunks with `relativePath`, `language`, `symbolName?`, 1-based inclusive `startLine` and `endLine`, `content`, a SHA-256 `chunkHash`, and `searchTerms` (the lower-case parts of camelCase and snake_case identifiers, stored in `code_chunks.search_terms` so full-text search matches `user` in `getUserById`). `CHUNKING_VERSION` identifies the algorithm.
+- `ChunkingService.chunk(file)` returns chunks with `relativePath`, `language`, `symbolName?`, 1-based inclusive `startLine` and `endLine`, `content`, a SHA-256 `chunkHash`, and `searchTerms` (the distinct lower-case words of the chunk plus the parts of camelCase words, stored in `code_chunks.search_terms` because Postgres keeps text such as `this.userService.findOne` as one lexeme; this is what lets full-text search match `find` or `user`). `CHUNKING_VERSION` identifies the algorithm.
 - Languages are defined once in `ingestion/constants/languages.ts`: an id, its extensions, optional exact filenames (`Dockerfile`, `Makefile`), and a chunking strategy. TypeScript and JavaScript are chunked by symbol; every other language (Python, Go, Java, Kotlin, Scala, Rust, C#, C, C++, Swift, Dart, Ruby, PHP, Perl, Lua, R, Julia, Elixir, Erlang, Haskell, Clojure, Zig, shell, PowerShell, SQL, HTML, CSS/SCSS/Less, Vue, Svelte, GraphQL, Protobuf, Terraform, Dockerfile, Makefile, plus JSON and Markdown) is chunked by whole lines. YAML, TOML, INI, `.properties`, XML, and `.env` are deliberately not indexed because they commonly hold unquoted secrets. To add a language, add one entry to that list; a new symbol-aware chunker is only needed for better chunk boundaries.
 - Skip reasons: `symlink`, `excluded-path` (VCS, dependencies, build output, caches, lockfiles, minified bundles, binaries, archives), `secret-filename` (`.env*`, keys, certificates, `id_rsa*`, credentials files), `custom-exclusion`, `gitignored`, `unsupported-extension`, `too-large`, `total-size-limit`, `unreadable`, `binary`, `invalid-encoding`, `line-too-long`, `secret-content`.
 - Skip reasons are the only trace of a skipped file. Content, matches, and paths are never logged.
@@ -140,6 +140,17 @@ The `indexing` module runs discovery, chunking, and embedding for a registered c
 - Skipped files are stored with their reason and no hash or content.
 - Failure modes: `404` unknown codebase or no job yet; `409` a job is already active; `503` no `DATABASE_URL`. Inference unavailable, a missing model, a dimension mismatch, or a moved repository root fails the job with a fixed summary; a request the runtime rejects (for example input over the model context) fails that file only. Deleting a codebase stops its job before the next file. Jobs still active when the API stopped are marked `failed` on the next start.
 - Logs carry job and codebase ids, counts, and timings only.
+
+### Retrieval
+
+The `retrieval` module finds the chunks that answer a question. `RetrievalService.search({ query, repositoryIds })` embeds the query (`embedQuery`), runs a pgvector cosine search and a full-text search, and fuses the two ranked lists with Reciprocal Rank Fusion (`1 / (RETRIEVAL_RRF_K + rank)`). It then drops chunks that overlap a better chunk of the same file and stops at `RETRIEVAL_MAX_CHUNKS` or `RETRIEVAL_MAX_CONTEXT_CHARS`. Each result carries its repository id and name, relative path, line range, symbol, score, and which searches found it with their ranks.
+
+- Both searches filter by `repositoryIds` in SQL. An empty or unknown id list returns nothing, never every repository.
+- Vector search compares only chunks embedded with the current embedding identity, and sets `hnsw.iterative_scan` and `hnsw.ef_search` for the query so the repository filter cannot starve the HNSW scan.
+- Full-text search is an OR query over lower-case alphanumeric terms from `code_chunks.search_terms`, so identifiers, camelCase parts, and dotted names match. A chunk containing the query as an adjacent phrase ranks first, which favors exact error strings. Terms are built by the app and bound as parameters, so query text cannot alter the SQL.
+- `POST /search` with `{ query, repositoryIds }` (1 to 20 ids, query up to 2000 characters) returns `{ results }` for inspecting retrieval. It returns `404` unless `RETRIEVAL_DEBUG_ENDPOINT=true`, and the token and loopback checks run first. Treat the response as source code.
+- Failure modes: `503` when the embedding model is unavailable (there is no lexical-only fallback), when `DATABASE_URL` is unset, or when a query exceeds `DATABASE_STATEMENT_TIMEOUT_MS`; `400` for an invalid body.
+- Logs carry counts and timings only, never the query or chunk content.
 
 ### Local inference
 
@@ -215,6 +226,12 @@ Configuration is validated at startup; invalid values stop the API. See [.env.ex
 | `CHUNK_MAX_CHARS`                                                                                              | `2000`                    | Largest chunk in characters (200 to 20000)                                    |
 | `CHUNK_OVERLAP_CHARS`                                                                                          | `200`                     | Overlap between windows of a split symbol; must be below `CHUNK_MAX_CHARS`    |
 | `INDEXING_EMBED_CONCURRENCY`                                                                                   | `2`                       | Files embedded in parallel within one index job (1 to 8, below the pool size) |
+| `RETRIEVAL_CANDIDATE_LIMIT`                                                                                    | `40`                      | Chunks each search contributes before fusion (1 to 200)                       |
+| `RETRIEVAL_MAX_CHUNKS`                                                                                         | `8`                       | Most chunks returned (1 to 50, not above the candidate limit)                 |
+| `RETRIEVAL_MAX_CONTEXT_CHARS`                                                                                  | `12000`                   | Most characters of chunk content returned; at least `CHUNK_MAX_CHARS`         |
+| `RETRIEVAL_RRF_K`                                                                                              | `60`                      | Reciprocal Rank Fusion constant (1 to 1000)                                   |
+| `RETRIEVAL_HNSW_EF_SEARCH`                                                                                     | `100`                     | pgvector `hnsw.ef_search` per vector query (1 to 1000)                        |
+| `RETRIEVAL_DEBUG_ENDPOINT`                                                                                     | `false`                   | `true` exposes `POST /search`; otherwise it answers `404`                     |
 
 ## Contributing
 

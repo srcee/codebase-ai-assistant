@@ -23,25 +23,54 @@ describe('splitIdentifier', () => {
 });
 
 describe('searchTermsFor', () => {
-  it('collects the parts of every compound identifier once', () => {
-    const terms = searchTermsFor(
-      'export function getUserById(userId) { return user_cache.get(userId); }',
-    );
-    expect(terms.split(' ').sort()).toEqual(
-      ['by', 'cache', 'get', 'id', 'user'].sort(),
+  const words = (text: string) => searchTermsFor(text).split(' ').sort();
+
+  it('collects each word once, lower-cased, with the parts of camelCase words', () => {
+    expect(
+      words(
+        'export function getUserById(userId) { return user_cache.get(userId); }',
+      ),
+    ).toEqual(
+      [
+        'by',
+        'cache',
+        'export',
+        'function',
+        'get',
+        'getuserbyid',
+        'id',
+        'return',
+        'user',
+        'userid',
+      ].sort(),
     );
   });
 
-  it('is empty for text without compound identifiers', () => {
-    expect(searchTermsFor('const a = 1; // plain words only')).toBe('');
+  it('splits dotted and path-like text that Postgres keeps as one lexeme', () => {
+    expect(words('this.userService.findOne(id)')).toEqual(
+      [
+        'find',
+        'findone',
+        'id',
+        'one',
+        'service',
+        'this',
+        'user',
+        'userservice',
+      ].sort(),
+    );
   });
 
-  it('ignores punctuation and numbers that are not identifiers', () => {
-    expect(searchTermsFor('12345 .. ::: 3.14')).toBe('');
+  it('drops single characters', () => {
+    expect(searchTermsFor('const a = 1; b')).toBe('const');
+  });
+
+  it('is empty without words', () => {
+    expect(searchTermsFor('.. ::: {}')).toBe('');
   });
 
   it('is bounded for very large inputs', () => {
     const text = Array.from({ length: 5000 }, (_, i) => `aa${i}Bb`).join(' ');
-    expect(searchTermsFor(text).split(' ').length).toBeLessThanOrEqual(1000);
+    expect(searchTermsFor(text).split(' ').length).toBeLessThanOrEqual(2000);
   });
 });

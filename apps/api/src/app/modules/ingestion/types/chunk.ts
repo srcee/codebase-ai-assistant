@@ -12,6 +12,6 @@ export interface Chunk {
   content: string;
   /** SHA-256 of `content`. */
   chunkHash: string;
-  /** Parts of the compound identifiers in the symbol name and content, for full-text matching. */
+  /** Distinct lower-case words of the symbol name and content, plus camelCase parts, for full-text matching. */
   searchTerms: string;
 }

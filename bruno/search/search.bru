@@ -1,0 +1,22 @@
+meta {
+  name: Search
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/search
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "query": "where is the retry handler",
+    "repositoryIds": ["{{codebaseId}}"]
+  }
+}
+
+assert {
+  res.status: eq 200
+}

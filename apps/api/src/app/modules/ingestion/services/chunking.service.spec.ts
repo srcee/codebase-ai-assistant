@@ -56,7 +56,7 @@ describe('ChunkingService', () => {
         content:
           '/** Adds two numbers. */\nexport function add(a: number, b: number): number {\n  return a + b;\n}',
         chunkHash: sha256Hex(second.content),
-        searchTerms: '',
+        searchTerms: 'add adds two numbers export function number return',
       });
     });
 
