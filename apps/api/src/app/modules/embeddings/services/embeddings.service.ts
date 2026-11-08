@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { APP_CONFIG, type AppConfig } from '@codebase-ai/server-config';
 import { InferenceUnavailableError } from '../../inference/errors/inference-unavailable.error';
@@ -20,16 +21,46 @@ export class EmbeddingsService {
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
-  /** `<runtime>/<model>`; stored with every vector so a change forces a re-index. */
+  /** `<runtime>/<model>`, plus a short hash of the document prefix when one is set; stored with every vector so a change forces a re-index. */
   get identity(): string {
-    const { runtime, embeddingModel } = this.config.inference;
-    return `${runtime}/${embeddingModel}`;
+    const { runtime, embeddingModel, embeddingDocumentPrefix } =
+      this.config.inference;
+    const base = `${runtime}/${embeddingModel}`;
+    if (embeddingDocumentPrefix === '') return base;
+    const hash = createHash('sha256')
+      .update(embeddingDocumentPrefix)
+      .digest('hex')
+      .slice(0, 8);
+    return `${base}+${hash}`;
   }
 
-  /** Returns one vector per input, in order. */
-  async embed(
+  /** Returns one vector per text, in order, embedded as indexed content. */
+  async embedDocuments(
     texts: readonly string[],
     options: InferenceRequestOptions = {},
+  ): Promise<number[][]> {
+    const { embeddingDocumentPrefix } = this.config.inference;
+    return this.embedAll(
+      texts.map((text) => embeddingDocumentPrefix + text),
+      options,
+    );
+  }
+
+  /** Embeds a search query so it can be compared with indexed content. */
+  async embedQuery(
+    text: string,
+    options: InferenceRequestOptions = {},
+  ): Promise<number[]> {
+    const [vector] = await this.embedAll(
+      [this.config.inference.embeddingQueryPrefix + text],
+      options,
+    );
+    return vector;
+  }
+
+  private async embedAll(
+    texts: readonly string[],
+    options: InferenceRequestOptions,
   ): Promise<number[][]> {
     const { embeddingBatchSize } = this.config.inference;
     const vectors: number[][] = [];

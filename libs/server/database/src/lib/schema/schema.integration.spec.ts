@@ -251,6 +251,22 @@ describeWithDatabase('database schema', (url) => {
     expect(rows).toHaveLength(1);
   });
 
+  it('makes the search terms and symbol name searchable with different weights', async () => {
+    const term = faker.string.alpha({ length: 12, casing: 'lower' });
+    const { chunk } = await seed(
+      {},
+      { symbolName: 'fixedsymbol', content: 'const x = 1;', searchTerms: term },
+    );
+    const { rows } = await handle.pool.query(
+      `select
+         search_vector @@ to_tsquery('simple', $1) as by_term,
+         ts_rank(search_vector, to_tsquery('simple', $1)) < ts_rank(search_vector, to_tsquery('simple', 'fixedsymbol')) as symbol_outranks_term
+       from code_chunks where id = $2`,
+      [term, chunk.id],
+    );
+    expect(rows[0]).toEqual({ by_term: true, symbol_outranks_term: true });
+  });
+
   it('supports nearest-neighbour search by cosine distance', async () => {
     await seed();
     const { rows } = await handle.pool.query(

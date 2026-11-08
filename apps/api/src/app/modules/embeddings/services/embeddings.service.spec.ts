@@ -40,7 +40,13 @@ describe('EmbeddingsService', () => {
       { EMBEDDING_BATCH_SIZE: '2' },
     );
 
-    const result = await service.embed(['a', 'bb', 'ccc', 'dddd', 'eeeee']);
+    const result = await service.embedDocuments([
+      'a',
+      'bb',
+      'ccc',
+      'dddd',
+      'eeeee',
+    ]);
 
     expect(port.embedBatch.mock.calls.map(([texts]) => texts)).toEqual([
       ['a', 'bb'],
@@ -58,9 +64,75 @@ describe('EmbeddingsService', () => {
     expect(service.identity).toBe(`${configWith().inference.runtime}/${model}`);
   });
 
+  describe('prefixes', () => {
+    const texts = () => [faker.lorem.word(), faker.lorem.word()];
+    const sent = (port: { embedBatch: jest.Mock }) =>
+      port.embedBatch.mock.calls.flatMap(([batch]) => [...batch]);
+
+    it('prepends the document prefix to indexed text only', async () => {
+      const { port, service } = serviceWith(
+        async (batch) => vectors(batch.length),
+        {
+          EMBEDDING_DOCUMENT_PREFIX: 'doc: ',
+          EMBEDDING_QUERY_PREFIX: 'query: ',
+        },
+      );
+      const input = texts();
+
+      await service.embedDocuments(input);
+
+      expect(sent(port)).toEqual(input.map((text) => `doc: ${text}`));
+    });
+
+    it('prepends the query prefix to a query and returns one vector', async () => {
+      const { port, service } = serviceWith(
+        async (batch) => vectors(batch.length),
+        {
+          EMBEDDING_DOCUMENT_PREFIX: 'doc: ',
+          EMBEDDING_QUERY_PREFIX: 'query: ',
+        },
+      );
+      const query = faker.lorem.sentence();
+
+      const vector = await service.embedQuery(query);
+
+      expect(sent(port)).toEqual([`query: ${query}`]);
+      expect(vector).toHaveLength(DIMENSIONS);
+    });
+
+    it('sends text unchanged without prefixes', async () => {
+      const { port, service } = serviceWith(async (batch) =>
+        vectors(batch.length),
+      );
+      const [first, second] = texts();
+
+      await service.embedDocuments([first]);
+      await service.embedQuery(second);
+
+      expect(sent(port)).toEqual([first, second]);
+    });
+
+    it('changes the identity with the document prefix but not the query prefix', () => {
+      const base = serviceWith(async () => []).service.identity;
+      const documentPrefixed = serviceWith(async () => [], {
+        EMBEDDING_DOCUMENT_PREFIX: 'doc: ',
+      }).service.identity;
+      const otherDocumentPrefix = serviceWith(async () => [], {
+        EMBEDDING_DOCUMENT_PREFIX: 'other: ',
+      }).service.identity;
+      const queryPrefixed = serviceWith(async () => [], {
+        EMBEDDING_QUERY_PREFIX: 'query: ',
+      }).service.identity;
+
+      expect(documentPrefixed).not.toBe(base);
+      expect(otherDocumentPrefix).not.toBe(documentPrefixed);
+      expect(queryPrefixed).toBe(base);
+    });
+  });
+
   it('makes no call for an empty input', async () => {
     const { port, service } = serviceWith(async () => []);
-    await expect(service.embed([])).resolves.toEqual([]);
+    await expect(service.embedDocuments([])).resolves.toEqual([]);
     expect(port.embedBatch).not.toHaveBeenCalled();
   });
 
@@ -74,9 +146,9 @@ describe('EmbeddingsService', () => {
         return vectors(texts.length);
       });
 
-      await expect(service.embed([faker.lorem.word()])).resolves.toHaveLength(
-        1,
-      );
+      await expect(
+        service.embedDocuments([faker.lorem.word()]),
+      ).resolves.toHaveLength(1);
       expect(port.embedBatch).toHaveBeenCalledTimes(2);
     },
   );
@@ -89,9 +161,9 @@ describe('EmbeddingsService', () => {
       { INFERENCE_MAX_RETRIES: '2' },
     );
 
-    await expect(service.embed([faker.lorem.word()])).rejects.toBeInstanceOf(
-      InferenceUnavailableError,
-    );
+    await expect(
+      service.embedDocuments([faker.lorem.word()]),
+    ).rejects.toBeInstanceOf(InferenceUnavailableError);
     expect(port.embedBatch).toHaveBeenCalledTimes(3);
   });
 
@@ -103,7 +175,9 @@ describe('EmbeddingsService', () => {
       { INFERENCE_MAX_RETRIES: '0' },
     );
 
-    await expect(service.embed([faker.lorem.word()])).rejects.toBeDefined();
+    await expect(
+      service.embedDocuments([faker.lorem.word()]),
+    ).rejects.toBeDefined();
     expect(port.embedBatch).toHaveBeenCalledTimes(1);
   });
 
@@ -116,7 +190,9 @@ describe('EmbeddingsService', () => {
       throw failure;
     });
 
-    await expect(service.embed([faker.lorem.word()])).rejects.toBe(failure);
+    await expect(service.embedDocuments([faker.lorem.word()])).rejects.toBe(
+      failure,
+    );
     expect(port.embedBatch).toHaveBeenCalledTimes(1);
   });
 
@@ -126,7 +202,7 @@ describe('EmbeddingsService', () => {
     );
 
     const error = await service
-      .embed([faker.lorem.word()])
+      .embedDocuments([faker.lorem.word()])
       .catch((e: unknown) => e);
 
     expect(error).toBeInstanceOf(EmbeddingDimensionMismatchError);
@@ -141,7 +217,7 @@ describe('EmbeddingsService', () => {
     const { service } = serviceWith(async () => vectors(1));
 
     await expect(
-      service.embed([faker.lorem.word(), faker.lorem.word()]),
+      service.embedDocuments([faker.lorem.word(), faker.lorem.word()]),
     ).rejects.toMatchObject({ reason: 'invalid-response' });
   });
 
@@ -153,7 +229,9 @@ describe('EmbeddingsService', () => {
     });
 
     await expect(
-      service.embed([faker.lorem.word()], { signal: controller.signal }),
+      service.embedDocuments([faker.lorem.word()], {
+        signal: controller.signal,
+      }),
     ).rejects.toBeDefined();
     expect(port.embedBatch).toHaveBeenCalledTimes(1);
   });
@@ -164,7 +242,7 @@ describe('EmbeddingsService', () => {
       vectors(texts.length),
     );
 
-    await service.embed(['x'], { signal });
+    await service.embedDocuments(['x'], { signal });
     expect(port.embedBatch).toHaveBeenCalledWith(['x'], { signal });
   });
 });

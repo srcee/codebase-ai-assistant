@@ -5,6 +5,7 @@ import type { Chunk } from '../types/chunk';
 import type { IncludedFile } from '../types/discovery-entry';
 import type { ChunkLimits, LineRange } from '../types/line-range';
 import { fileExtension } from '../utils/detect-language';
+import { searchTermsFor } from '../utils/identifier-terms';
 import { sha256Hex } from '../utils/sha256-hex';
 import { splitIntoWindows } from '../utils/split-into-windows';
 import { splitLines } from '../utils/split-lines';
@@ -39,6 +40,7 @@ export class ChunkingService {
         endLine: range.endLine,
         content,
         chunkHash: sha256Hex(content),
+        searchTerms: searchTermsFor(`${range.symbolName ?? ''}\n${content}`),
       };
     });
   }
