@@ -91,7 +91,28 @@ describe('loadConfig', () => {
         timeoutMs: 30000,
         maxRetries: 2,
         embeddingBatchSize: 32,
+        embeddingQueryPrefix: '',
+        embeddingDocumentPrefix: '',
       });
+    });
+
+    it('reads the embedding prefixes as written', () => {
+      expect(
+        loadConfig({
+          EMBEDDING_QUERY_PREFIX: 'search_query: ',
+          EMBEDDING_DOCUMENT_PREFIX: 'search_document: ',
+        }).inference,
+      ).toMatchObject({
+        embeddingQueryPrefix: 'search_query: ',
+        embeddingDocumentPrefix: 'search_document: ',
+      });
+    });
+
+    it.each([
+      ['EMBEDDING_QUERY_PREFIX', 'a'.repeat(101)],
+      ['EMBEDDING_DOCUMENT_PREFIX', 'line\nbreak'],
+    ])('rejects %s=%j', (key, value) => {
+      expect(() => loadConfig({ [key]: value })).toThrow(ConfigError);
     });
 
     it('overrides models and tunables', () => {

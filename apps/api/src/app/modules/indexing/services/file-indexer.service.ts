@@ -89,6 +89,7 @@ export class FileIndexerService {
         startLine: chunk.startLine,
         endLine: chunk.endLine,
         content: chunk.content,
+        searchTerms: chunk.searchTerms,
         embedding: vectors.get(chunk.chunkHash) as number[],
         embeddingModel: context.embeddingModel,
         chunkingVersion: context.chunkingVersion,
@@ -174,9 +175,12 @@ export class FileIndexerService {
       }
     }
     if (missing.size === 0) return vectors;
-    const embedded = await this.embeddings.embed([...missing.values()], {
-      signal: context.signal,
-    });
+    const embedded = await this.embeddings.embedDocuments(
+      [...missing.values()],
+      {
+        signal: context.signal,
+      },
+    );
     [...missing.keys()].forEach((hash, index) =>
       vectors.set(hash, embedded[index]),
     );

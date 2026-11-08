@@ -24,6 +24,13 @@ const commaList = (value: string): string[] =>
     .map((item) => item.trim())
     .filter(Boolean);
 
+// Prepended as written, so a trailing space must be quoted in the env file.
+const embeddingPrefix = z
+  .string()
+  .max(100)
+  .regex(/^[^\p{Cc}]*$/u, 'must not contain control characters')
+  .default('');
+
 // Only the shape is checked here; the ingestion module rejects ids it does not know.
 const languageList = z
   .string()
@@ -76,6 +83,8 @@ const envSchema = z
       .default(30000),
     INFERENCE_MAX_RETRIES: z.coerce.number().int().min(0).max(5).default(2),
     EMBEDDING_BATCH_SIZE: z.coerce.number().int().min(1).max(256).default(32),
+    EMBEDDING_QUERY_PREFIX: embeddingPrefix,
+    EMBEDDING_DOCUMENT_PREFIX: embeddingPrefix,
     INGEST_MAX_FILE_BYTES: z.coerce
       .number()
       .int()
@@ -164,6 +173,10 @@ export interface InferenceConfig {
   /** Applies to embeddings only; streaming chat is never retried. */
   maxRetries: number;
   embeddingBatchSize: number;
+  /** Prepended to search queries before embedding; empty for models that need none. */
+  embeddingQueryPrefix: string;
+  /** Prepended to indexed text before embedding; part of the embedding identity. */
+  embeddingDocumentPrefix: string;
 }
 
 export interface IngestionConfig {
@@ -231,6 +244,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       timeoutMs: e.INFERENCE_TIMEOUT_MS,
       maxRetries: e.INFERENCE_MAX_RETRIES,
       embeddingBatchSize: e.EMBEDDING_BATCH_SIZE,
+      embeddingQueryPrefix: e.EMBEDDING_QUERY_PREFIX,
+      embeddingDocumentPrefix: e.EMBEDDING_DOCUMENT_PREFIX,
     },
     ingestion: {
       maxFileBytes: e.INGEST_MAX_FILE_BYTES,

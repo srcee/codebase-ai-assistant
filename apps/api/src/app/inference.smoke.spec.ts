@@ -26,7 +26,9 @@ smoke('local inference smoke test', () => {
   });
 
   it('embeds text with the configured model', async () => {
-    const [vector] = await embeddings.embed(['export const answer = 42;']);
+    const [vector] = await embeddings.embedDocuments([
+      'export const answer = 42;',
+    ]);
     expect(vector).toHaveLength(config.inference.embeddingDimensions);
   });
 
