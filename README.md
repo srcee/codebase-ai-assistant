@@ -191,6 +191,9 @@ Configuration is validated at startup; invalid values stop the API. See [.env.ex
 | `LOG_FORMAT`                                                                                                   | `text`                    | `text` or `json` (one JSON object per line)                                   |
 | `DATABASE_URL`                                                                                                 | unset                     | PostgreSQL connection string; `/health` is degraded if unset                  |
 | `TEST_DATABASE_URL`                                                                                            | unset                     | Integration tests only; database name must end in `_test`                     |
+| `DATABASE_POOL_MAX`                                                                                            | `10`                      | Connections in the pool (1 to 100); must exceed `INDEXING_EMBED_CONCURRENCY`  |
+| `DATABASE_IDLE_TIMEOUT_MS`                                                                                     | `10000`                   | Idle connections close after this long (1000 to 3600000)                      |
+| `DATABASE_STATEMENT_TIMEOUT_MS`                                                                                | `30000`                   | Slower statements are cancelled and the API answers `503` (1 to 600000)       |
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_PORT`, `POSTGRES_TEST_DB`, `POSTGRES_TEST_PORT` | see `.env.example`        | Read by `docker-compose.yml` only                                             |
 | `ALLOWED_REPO_ROOTS`                                                                                           | empty (none allowed)      | Platform path delimiter (`;` on Windows)                                      |
 | `REPO_REQUIRE_GIT_DIR`                                                                                         | `true`                    | Require a `.git` directory when registering a repository                      |
@@ -209,7 +212,7 @@ Configuration is validated at startup; invalid values stop the API. See [.env.ex
 | `INGEST_EXCLUDE_PATTERNS`                                                                                      | empty                     | Comma-separated `.gitignore` patterns added to the built-in exclusions        |
 | `CHUNK_MAX_CHARS`                                                                                              | `2000`                    | Largest chunk in characters (200 to 20000)                                    |
 | `CHUNK_OVERLAP_CHARS`                                                                                          | `200`                     | Overlap between windows of a split symbol; must be below `CHUNK_MAX_CHARS`    |
-| `INDEXING_EMBED_CONCURRENCY`                                                                                   | `2`                       | Files embedded in parallel within one index job (1 to 8)                      |
+| `INDEXING_EMBED_CONCURRENCY`                                                                                   | `2`                       | Files embedded in parallel within one index job (1 to 8, below the pool size) |
 
 ## Contributing
 

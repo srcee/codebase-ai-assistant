@@ -157,6 +157,56 @@ describe('loadConfig', () => {
     assertNotLeaked((error as Error).message, CANARY_DB_PASSWORD);
   });
 
+  describe('database', () => {
+    it('uses documented defaults', () => {
+      expect(loadConfig({}).database).toEqual({
+        poolMax: 10,
+        idleTimeoutMs: 10000,
+        statementTimeoutMs: 30000,
+      });
+    });
+
+    it('reads overrides', () => {
+      expect(
+        loadConfig({
+          DATABASE_POOL_MAX: '20',
+          DATABASE_IDLE_TIMEOUT_MS: '5000',
+          DATABASE_STATEMENT_TIMEOUT_MS: '1500',
+        }).database,
+      ).toEqual({
+        poolMax: 20,
+        idleTimeoutMs: 5000,
+        statementTimeoutMs: 1500,
+      });
+    });
+
+    it.each([
+      ['DATABASE_POOL_MAX', '0'],
+      ['DATABASE_POOL_MAX', '101'],
+      ['DATABASE_IDLE_TIMEOUT_MS', '999'],
+      ['DATABASE_STATEMENT_TIMEOUT_MS', '0'],
+      ['DATABASE_STATEMENT_TIMEOUT_MS', '600001'],
+      ['DATABASE_STATEMENT_TIMEOUT_MS', 'abc'],
+    ])('rejects %s=%s', (key, value) => {
+      expect(() => loadConfig({ [key]: value })).toThrow(ConfigError);
+    });
+
+    it('requires the pool to be larger than the indexing concurrency', () => {
+      expect(() =>
+        loadConfig({
+          DATABASE_POOL_MAX: '4',
+          INDEXING_EMBED_CONCURRENCY: '4',
+        }),
+      ).toThrow(ConfigError);
+      expect(
+        loadConfig({
+          DATABASE_POOL_MAX: '5',
+          INDEXING_EMBED_CONCURRENCY: '4',
+        }).database.poolMax,
+      ).toBe(5);
+    });
+  });
+
   describe('indexing', () => {
     it('defaults to an embedding concurrency of 2', () => {
       expect(loadConfig({}).indexing).toEqual({ embedConcurrency: 2 });

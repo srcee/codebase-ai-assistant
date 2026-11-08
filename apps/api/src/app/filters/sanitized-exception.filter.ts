@@ -6,7 +6,10 @@ import {
   Logger,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
-import { DatabaseNotConfiguredError } from '@codebase-ai/server-database';
+import {
+  DatabaseNotConfiguredError,
+  isStatementTimeoutError,
+} from '@codebase-ai/server-database';
 import { InferenceModelNotFoundError } from '../modules/inference/errors/inference-model-not-found.error';
 import { InferenceRequestRejectedError } from '../modules/inference/errors/inference-request-rejected.error';
 import { InferenceUnavailableError } from '../modules/inference/errors/inference-unavailable.error';
@@ -29,6 +32,17 @@ export class SanitizedExceptionFilter implements ExceptionFilter {
       response
         .status(503)
         .json({ statusCode: 503, message: exception.message });
+      return;
+    }
+
+    if (isStatementTimeoutError(exception)) {
+      const request = http.getRequest<Request>();
+      this.logger.warn(
+        `${request.method} ${request.route?.path ?? '<unmatched>'} failed: statement timeout`,
+      );
+      response
+        .status(503)
+        .json({ statusCode: 503, message: 'The database query timed out' });
       return;
     }
 
