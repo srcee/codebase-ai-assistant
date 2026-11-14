@@ -49,6 +49,12 @@
       }
     },
     "test": {
+      "dependsOn": [
+        {
+          "projects": ["server-database"],
+          "target": "test-up"
+        }
+      ],
       "options": {
         "passWithNoTests": true
       }

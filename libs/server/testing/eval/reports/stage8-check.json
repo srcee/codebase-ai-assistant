@@ -1,0 +1,138 @@
+{
+  "label": "stage8-check",
+  "generatedAt": "2026-11-14T13:34:50.595Z",
+  "questionSetVersion": 1,
+  "questionCount": 38,
+  "config": {
+    "embeddingIdentity": "ollama/nomic-embed-text",
+    "embeddingQueryPrefix": "",
+    "embeddingDocumentPrefix": "",
+    "chunkMaxChars": 2000,
+    "chunkOverlapChars": 200,
+    "chunkingVersion": "3",
+    "candidateLimit": 40,
+    "rrfK": 60,
+    "hnswEfSearch": 100
+  },
+  "indexing": {
+    "filesDiscovered": 30,
+    "filesIndexed": 30,
+    "filesSkipped": 0,
+    "filesFailed": 0,
+    "chunksWritten": 102,
+    "durationMs": 1882,
+    "coverage": 1
+  },
+  "modes": {
+    "vector": {
+      "recallAt5": 0.9078947368421053,
+      "recallAt10": 0.9473684210526315,
+      "mrrAt10": 0.8287280701754386,
+      "latencyP50Ms": 37.92710000000079,
+      "latencyP95Ms": 1757.0824999999986,
+      "byCategory": {
+        "identifier": {
+          "questions": 8,
+          "recallAt10": 1,
+          "mrrAt10": 0.875
+        },
+        "snake-case": {
+          "questions": 6,
+          "recallAt10": 0.8333333333333334,
+          "mrrAt10": 0.576388888888889
+        },
+        "error-string": {
+          "questions": 7,
+          "recallAt10": 1,
+          "mrrAt10": 0.9285714285714286
+        },
+        "paraphrase": {
+          "questions": 13,
+          "recallAt10": 0.9615384615384616,
+          "mrrAt10": 0.8487179487179487
+        },
+        "cross-file": {
+          "questions": 4,
+          "recallAt10": 0.875,
+          "mrrAt10": 0.875
+        }
+      },
+      "incomplete": ["snake-case-02", "paraphrase-02", "cross-file-01"]
+    },
+    "lexical": {
+      "recallAt5": 0.9210526315789473,
+      "recallAt10": 0.9342105263157895,
+      "mrrAt10": 0.8197368421052631,
+      "latencyP50Ms": 3.6864999999997963,
+      "latencyP95Ms": 4.96980000000076,
+      "byCategory": {
+        "identifier": {
+          "questions": 8,
+          "recallAt10": 1,
+          "mrrAt10": 1
+        },
+        "snake-case": {
+          "questions": 6,
+          "recallAt10": 1,
+          "mrrAt10": 1
+        },
+        "error-string": {
+          "questions": 7,
+          "recallAt10": 1,
+          "mrrAt10": 0.9285714285714286
+        },
+        "paraphrase": {
+          "questions": 13,
+          "recallAt10": 0.8846153846153846,
+          "mrrAt10": 0.6692307692307692
+        },
+        "cross-file": {
+          "questions": 4,
+          "recallAt10": 0.75,
+          "mrrAt10": 0.4875
+        }
+      },
+      "incomplete": [
+        "paraphrase-02",
+        "paraphrase-07",
+        "cross-file-01",
+        "cross-file-02"
+      ]
+    },
+    "hybrid": {
+      "recallAt5": 0.9605263157894737,
+      "recallAt10": 0.9736842105263158,
+      "mrrAt10": 0.8758771929824561,
+      "latencyP50Ms": 24.637400000001435,
+      "latencyP95Ms": 26.737600000000384,
+      "byCategory": {
+        "identifier": {
+          "questions": 8,
+          "recallAt10": 1,
+          "mrrAt10": 1
+        },
+        "snake-case": {
+          "questions": 6,
+          "recallAt10": 1,
+          "mrrAt10": 0.7916666666666666
+        },
+        "error-string": {
+          "questions": 7,
+          "recallAt10": 1,
+          "mrrAt10": 0.9285714285714286
+        },
+        "paraphrase": {
+          "questions": 13,
+          "recallAt10": 0.9615384615384616,
+          "mrrAt10": 0.8102564102564104
+        },
+        "cross-file": {
+          "questions": 4,
+          "recallAt10": 0.875,
+          "mrrAt10": 0.875
+        }
+      },
+      "incomplete": ["paraphrase-02", "cross-file-01"]
+    }
+  }
+}

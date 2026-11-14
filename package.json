@@ -18,7 +18,7 @@
     "db:down": "docker compose stop postgres",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:reset": "docker compose down -v && npm run db:up && npm run db:migrate",
+    "db:reset": "docker compose --profile test down -v --remove-orphans && npm run db:up && npm run db:migrate",
     "db:test:up": "docker compose --profile test up -d --wait postgres-test",
     "db:test:down": "docker compose --profile test rm -sfv postgres-test"
   },

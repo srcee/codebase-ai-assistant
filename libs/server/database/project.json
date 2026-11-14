@@ -4,5 +4,65 @@
   "sourceRoot": "libs/server/database/src",
   "projectType": "library",
   "tags": ["scope:server", "type:data"],
-  "targets": {}
+  "targets": {
+    "up": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "docker compose up -d --wait postgres"
+      }
+    },
+    "test-up": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "docker compose --profile test up -d --wait postgres-test"
+      }
+    },
+    "down": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "docker compose stop postgres"
+      }
+    },
+    "test-down": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "docker compose --profile test rm -sfv postgres-test"
+      }
+    },
+    "migrate": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "drizzle-kit migrate"
+      }
+    },
+    "test": {
+      "dependsOn": ["test-up"]
+    },
+    "generate": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "drizzle-kit generate"
+      }
+    },
+    "reset": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "docker compose --profile test down -v --remove-orphans && docker compose up -d --wait postgres && drizzle-kit migrate"
+      }
+    },
+    "test-reset": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "docker compose --profile test rm -sfv postgres-test && docker compose --profile test up -d --wait postgres-test"
+      }
+    }
+  }
 }

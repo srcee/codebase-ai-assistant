@@ -2,7 +2,7 @@
 
 **Goal:** Generalize the data model and retrieval from code repositories to knowledge sources grouped by projects, so documentation can be indexed next to code and chat citations work for both.
 
-**Status:** In progress (eval comparison with the Stage 7 report pending)
+**Status:** Done (eval comparison with Stage 7 reports is within noise; see `libs/server/testing/eval/reports/stage8-check.md`)
 
 **Prerequisites:** Stage 7.
 

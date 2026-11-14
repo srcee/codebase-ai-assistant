@@ -10,6 +10,10 @@ get {
   auth: inherit
 }
 
+vars:pre-request {
+  codebaseId: 524732ac-8a03-4576-85cf-7dcdc402fece
+}
+
 assert {
   res.status: eq 200
 }
