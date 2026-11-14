@@ -1,0 +1,15 @@
+meta {
+  name: Get conversation
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/conversations/{{conversationId}}
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+}

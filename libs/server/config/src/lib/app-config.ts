@@ -135,6 +135,28 @@ const envSchema = z
       .max(1000)
       .default(100),
     RETRIEVAL_DEBUG_ENDPOINT: disabledByDefaultFlag,
+    CHAT_MAX_QUESTION_CHARS: z.coerce
+      .number()
+      .int()
+      .min(100)
+      .max(20000)
+      .default(4000),
+    CHAT_HISTORY_TURNS: z.coerce.number().int().min(0).max(20).default(4),
+    CHAT_HISTORY_MAX_CHARS: z.coerce
+      .number()
+      .int()
+      .min(0)
+      .max(50000)
+      .default(4000),
+    CHAT_MAX_CONCURRENT: z.coerce.number().int().min(1).max(4).default(1),
+    CHAT_GENERATION_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .min(1000)
+      .max(1800000)
+      .default(120000),
+    CHAT_MIN_VECTOR_SIMILARITY: z.coerce.number().min(0).max(1).default(0.5),
+    CHAT_RETENTION_DAYS: z.coerce.number().int().min(1).max(36500).optional(),
   })
   .superRefine((env, ctx) => {
     if (!LOOPBACK_HOSTS.has(env.API_HOST)) {
@@ -192,6 +214,7 @@ export interface AppConfig {
   ingestion: IngestionConfig;
   indexing: IndexingConfig;
   retrieval: RetrievalConfig;
+  chat: ChatConfig;
 }
 
 export interface DatabaseConfig {
@@ -245,6 +268,21 @@ export interface RetrievalConfig {
   hnswEfSearch: number;
   /** Exposes POST /search for inspecting retrieval. */
   debugEndpoint: boolean;
+}
+
+export interface ChatConfig {
+  maxQuestionChars: number;
+  /** Previous question and answer pairs included in the prompt. */
+  historyTurns: number;
+  historyMaxChars: number;
+  /** Concurrent generations; more requests get 429. */
+  maxConcurrent: number;
+  /** Wall-time limit for one chat request, including retrieval. */
+  generationTimeoutMs: number;
+  /** Below this best cosine similarity, with no lexical hit, chat abstains. */
+  minVectorSimilarity: number;
+  /** Undefined keeps conversations until deleted. */
+  retentionDays?: number;
 }
 
 export const APP_CONFIG = Symbol('APP_CONFIG');
@@ -318,6 +356,15 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       rrfK: e.RETRIEVAL_RRF_K,
       hnswEfSearch: e.RETRIEVAL_HNSW_EF_SEARCH,
       debugEndpoint: e.RETRIEVAL_DEBUG_ENDPOINT,
+    },
+    chat: {
+      maxQuestionChars: e.CHAT_MAX_QUESTION_CHARS,
+      historyTurns: e.CHAT_HISTORY_TURNS,
+      historyMaxChars: e.CHAT_HISTORY_MAX_CHARS,
+      maxConcurrent: e.CHAT_MAX_CONCURRENT,
+      generationTimeoutMs: e.CHAT_GENERATION_TIMEOUT_MS,
+      minVectorSimilarity: e.CHAT_MIN_VECTOR_SIMILARITY,
+      retentionDays: e.CHAT_RETENTION_DAYS,
     },
   };
 }

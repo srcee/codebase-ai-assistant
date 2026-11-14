@@ -2,7 +2,7 @@
 
 **Goal:** Answer questions from retrieved evidence with validated citations, abstain when evidence is insufficient, and persist conversations locally.
 
-**Status:** Not started (`GenerationService` entry point exists from Stage 5)
+**Status:** In progress in CAA-17 (decision 0013; includes a minimal web chat ahead of Stage 17; chat evaluation report pending)
 
 **Prerequisites:** Stages 5, 7, and 8 (sources, projects, locators).
 

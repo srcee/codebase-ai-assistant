@@ -1,6 +1,9 @@
 export { EMBEDDING_DIMENSIONS } from './shared/columns';
 export { chunks } from './chunks/table';
+export { conversations } from './conversations/table';
 export { indexJobs } from './index-jobs/table';
+export { messageCitations } from './message-citations/table';
+export { messages } from './messages/table';
 export { projects } from './projects/table';
 export { projectSources } from './project-sources/table';
 export { sources } from './sources/table';
