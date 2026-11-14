@@ -1,7 +1,13 @@
+import type { Locator } from '@codebase-ai/contracts';
 import { retrievedChunkFactory } from '../../../../testing/factories/search-candidate.factory';
 import { applyContextBudget } from './apply-context-budget';
 
 const budget = { maxChunks: 10, maxContextChars: 10_000 };
+const lines = (startLine: number, endLine: number): Locator => ({
+  kind: 'lines',
+  startLine,
+  endLine,
+});
 
 describe('applyContextBudget', () => {
   it('keeps rank order', () => {
@@ -29,19 +35,17 @@ describe('applyContextBudget', () => {
     ).toEqual([first, small]);
   });
 
-  it('drops a lower-ranked chunk whose lines overlap a kept chunk of the same file', () => {
-    const kept = retrievedChunkFactory.build({ startLine: 10, endLine: 30 });
+  it('drops a lower-ranked chunk whose locator overlaps a kept chunk of the same file', () => {
+    const kept = retrievedChunkFactory.build({ locator: lines(10, 30) });
     const overlapping = retrievedChunkFactory.build({
-      repositoryId: kept.repositoryId,
+      sourceId: kept.sourceId,
       relativePath: kept.relativePath,
-      startLine: 30,
-      endLine: 50,
+      locator: lines(30, 50),
     });
     const adjacent = retrievedChunkFactory.build({
-      repositoryId: kept.repositoryId,
+      sourceId: kept.sourceId,
       relativePath: kept.relativePath,
-      startLine: 31,
-      endLine: 50,
+      locator: lines(31, 50),
     });
 
     expect(applyContextBudget([kept, overlapping, adjacent], budget)).toEqual([
@@ -50,14 +54,24 @@ describe('applyContextBudget', () => {
     ]);
   });
 
-  it('keeps the same path and lines from different repositories', () => {
-    const first = retrievedChunkFactory.build({ startLine: 1, endLine: 10 });
+  it('keeps the same path and locator from different sources', () => {
+    const first = retrievedChunkFactory.build({ locator: lines(1, 10) });
     const other = retrievedChunkFactory.build({
       relativePath: first.relativePath,
-      startLine: 1,
-      endLine: 10,
+      locator: lines(1, 10),
     });
     expect(applyContextBudget([first, other], budget)).toHaveLength(2);
+  });
+
+  it('drops a repeated section of the same document', () => {
+    const section: Locator = { kind: 'section', headingPath: ['Roles'] };
+    const kept = retrievedChunkFactory.build({ locator: section });
+    const repeated = retrievedChunkFactory.build({
+      sourceId: kept.sourceId,
+      relativePath: kept.relativePath,
+      locator: section,
+    });
+    expect(applyContextBudget([kept, repeated], budget)).toEqual([kept]);
   });
 
   it('returns nothing for no input', () => {

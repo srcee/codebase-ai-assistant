@@ -6,7 +6,7 @@ type IndexJobRow = typeof schema.indexJobs.$inferSelect;
 export function toIndexJobResponse(row: IndexJobRow): IndexJobResponse {
   return {
     id: row.id,
-    codebaseId: row.repositoryId,
+    codebaseId: row.sourceId,
     status: row.status as IndexJobStatus,
     filesDiscovered: row.filesDiscovered,
     filesIndexed: row.filesIndexed,

@@ -13,7 +13,7 @@ import {
   describeWithDatabase,
   indexJobFactory,
   prepareDedicatedDatabase,
-  repositoryFactory,
+  sourceFactory,
 } from '@codebase-ai/server-database/testing';
 import {
   buildEmbeddingVectors,
@@ -38,7 +38,7 @@ import { EMBEDDING_PORT } from '../inference/types/embedding-port';
 import { IndexJobRunnerService } from './services/index-job-runner.service';
 import { IndexJobsService } from './services/index-jobs.service';
 
-const { codeChunks, indexJobs, repositories, repositoryFiles } = schema;
+const { chunks: chunkTable, indexJobs, sources, sourceFiles } = schema;
 
 const ALPHA_BETA = [
   'export function alpha(): number {',
@@ -97,21 +97,21 @@ describeWithDatabase('indexing API', (baseUrl) => {
   const chunksOf = (repositoryId: string) =>
     handle.db
       .select()
-      .from(codeChunks)
-      .where(eq(codeChunks.repositoryId, repositoryId));
+      .from(chunkTable)
+      .where(eq(chunkTable.sourceId, repositoryId));
 
   const filesOf = (repositoryId: string) =>
     handle.db
       .select()
-      .from(repositoryFiles)
-      .where(eq(repositoryFiles.repositoryId, repositoryId));
+      .from(sourceFiles)
+      .where(eq(sourceFiles.sourceId, repositoryId));
 
   const statusOf = async (repositoryId: string) =>
     (
       await handle.db
-        .select({ status: repositories.status })
-        .from(repositories)
-        .where(eq(repositories.id, repositoryId))
+        .select({ status: sources.status })
+        .from(sources)
+        .where(eq(sources.id, repositoryId))
     )[0]?.status;
 
   beforeAll(async () => {
@@ -139,7 +139,7 @@ describeWithDatabase('indexing API', (baseUrl) => {
 
   afterEach(async () => {
     await runner().whenIdle();
-    await handle.db.delete(repositories);
+    await handle.db.delete(sources);
     jest.restoreAllMocks();
   });
 
@@ -183,6 +183,25 @@ describeWithDatabase('indexing API', (baseUrl) => {
         ),
       ).toBe(true);
       expect(await statusOf(repo.id)).toBe('ready');
+    });
+
+    it('stores code chunks with their symbol as title and a lines locator', async () => {
+      const repo = await registerRepository(baseFiles());
+      await indexAndWait(repo.id);
+
+      const chunks = await chunksOf(repo.id);
+      expect(chunks.length).toBeGreaterThan(0);
+      for (const chunk of chunks) {
+        expect(chunk.contentKind).toBe('code');
+        expect(chunk.locator).toEqual({
+          kind: 'lines',
+          startLine: chunk.startLine,
+          endLine: chunk.endLine,
+        });
+      }
+      expect(chunks.map((chunk) => chunk.title)).toEqual(
+        expect.arrayContaining(['alpha', 'beta']),
+      );
     });
 
     it('reports skip reasons without contents', async () => {
@@ -274,13 +293,13 @@ describeWithDatabase('indexing API', (baseUrl) => {
       await indexAndWait(repo.id);
       const chunkCount = (await chunksOf(repo.id)).length;
       await handle.db
-        .update(repositoryFiles)
+        .update(sourceFiles)
         .set(change)
-        .where(eq(repositoryFiles.repositoryId, repo.id));
+        .where(eq(sourceFiles.sourceId, repo.id));
       await handle.db
-        .update(codeChunks)
+        .update(chunkTable)
         .set(change)
-        .where(eq(codeChunks.repositoryId, repo.id));
+        .where(eq(chunkTable.sourceId, repo.id));
       embedBatch.mockClear();
 
       const { job } = await indexAndWait(repo.id);
@@ -404,7 +423,7 @@ describeWithDatabase('indexing API', (baseUrl) => {
       const jobs = await handle.db
         .select()
         .from(indexJobs)
-        .where(eq(indexJobs.repositoryId, repo.id));
+        .where(eq(indexJobs.sourceId, repo.id));
       expect(jobs).toEqual([]);
     });
 
@@ -444,7 +463,7 @@ describeWithDatabase('indexing API', (baseUrl) => {
       const [job] = await handle.db
         .select()
         .from(indexJobs)
-        .where(eq(indexJobs.repositoryId, repo.id));
+        .where(eq(indexJobs.sourceId, repo.id));
       expect(job).toMatchObject({ status: 'failed' });
       expect(job.errorSummary).not.toMatch(/restart/);
       expect(await statusOf(repo.id)).toBe('failed');
@@ -452,12 +471,12 @@ describeWithDatabase('indexing API', (baseUrl) => {
 
     it('marks jobs left active by a previous process as failed', async () => {
       const dbOptions = { transient: { db: handle.db } };
-      const repository = await repositoryFactory.create(
+      const repository = await sourceFactory.create(
         { status: 'indexing' },
         dbOptions,
       );
       const job = await indexJobFactory.create(
-        { repositoryId: repository.id, status: 'running' },
+        { sourceId: repository.id, status: 'running' },
         dbOptions,
       );
 
@@ -507,12 +526,12 @@ describeWithDatabase('indexing API', (baseUrl) => {
 
       expect(job.status).toBe('succeeded');
       const leaked = await handle.db
-        .select({ id: codeChunks.id })
-        .from(codeChunks)
+        .select({ id: chunkTable.id })
+        .from(chunkTable)
         .where(
           and(
-            eq(codeChunks.repositoryId, id),
-            sql`${codeChunks.content} like ${`%${CANARY_SECRET}%`}`,
+            eq(chunkTable.sourceId, id),
+            sql`${chunkTable.content} like ${`%${CANARY_SECRET}%`}`,
           ),
         );
       expect(leaked).toEqual([]);

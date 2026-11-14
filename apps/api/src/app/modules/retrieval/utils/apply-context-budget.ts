@@ -1,4 +1,5 @@
 import type { RetrievedChunk } from '../types/retrieved-chunk';
+import { locatorsOverlap } from './locators-overlap';
 
 export interface ContextBudget {
   maxChunks: number;
@@ -6,10 +7,9 @@ export interface ContextBudget {
 }
 
 const overlaps = (a: RetrievedChunk, b: RetrievedChunk): boolean =>
-  a.repositoryId === b.repositoryId &&
+  a.sourceId === b.sourceId &&
   a.relativePath === b.relativePath &&
-  a.startLine <= b.endLine &&
-  b.startLine <= a.endLine;
+  locatorsOverlap(a.locator, b.locator);
 
 /** Keeps rank order; a chunk that does not fit is skipped and smaller ones after it still count. */
 export function applyContextBudget(

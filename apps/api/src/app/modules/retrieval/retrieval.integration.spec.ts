@@ -4,12 +4,14 @@ import type { SearchResponse } from '@codebase-ai/contracts';
 import { type DatabaseHandle, schema } from '@codebase-ai/server-database';
 import {
   axisVector,
-  codeChunkFactory,
+  chunkFactory,
   describeWithDatabase,
   prepareDedicatedDatabase,
-  type RepositoryRow,
-  repositoryFactory,
-  repositoryFileFactory,
+  projectFactory,
+  projectSourceFactory,
+  sourceFactory,
+  sourceFileFactory,
+  type SourceRow,
 } from '@codebase-ai/server-database/testing';
 import { testConfig } from '@codebase-ai/server-testing';
 import { faker } from '@codebase-ai/shared-testing';
@@ -18,9 +20,10 @@ import { createTestApp } from '../../../testing/create-test-app';
 import { EmbeddingsService } from '../embeddings/services/embeddings.service';
 import { EMBEDDING_PORT } from '../inference/types/embedding-port';
 import { searchTermsFor } from '../ingestion/utils/identifier-terms';
+import { ProjectScopeService } from '../projects/services/project-scope.service';
 import { RetrievalService } from './services/retrieval.service';
 
-const { codeChunks, repositories, repositoryFiles } = schema;
+const { chunks, projects, sources, sourceFiles } = schema;
 
 const MAX_CHUNKS = 5;
 const MAX_CONTEXT_CHARS = 2500;
@@ -31,20 +34,21 @@ describeWithDatabase('hybrid retrieval', (baseUrl) => {
   let app: INestApplication;
   let handle: DatabaseHandle;
   let retrieval: RetrievalService;
+  let projectScope: ProjectScopeService;
   let identity: string;
 
   const create = () => ({ transient: { db: handle.db } });
-  const newRepository = () => repositoryFactory.create({}, create());
+  const newRepository = () => sourceFactory.create({}, create());
 
-  const seedFile = (repo: RepositoryRow, relativePath?: string) =>
-    repositoryFileFactory.create(
-      { repositoryId: repo.id, ...(relativePath ? { relativePath } : {}) },
+  const seedFile = (repo: SourceRow, relativePath?: string) =>
+    sourceFileFactory.create(
+      { sourceId: repo.id, ...(relativePath ? { relativePath } : {}) },
       create(),
     );
 
   interface ChunkSeed {
     content: string;
-    symbolName?: string | null;
+    title?: string | null;
     /** Defaults to the query direction, so the chunk is the nearest vector match. */
     axis?: number;
     startLine?: number;
@@ -53,30 +57,34 @@ describeWithDatabase('hybrid retrieval', (baseUrl) => {
   }
 
   const seedChunk = async (
-    repo: RepositoryRow,
+    repo: SourceRow,
     seed: ChunkSeed,
     file?: { id: string },
   ) => {
     const targetFile = file ?? (await seedFile(repo));
-    const symbolName = seed.symbolName ?? null;
-    return codeChunkFactory.create(
+    const title = seed.title ?? null;
+    const startLine = seed.startLine ?? faker.number.int({ min: 1, max: 100 });
+    const endLine =
+      seed.endLine ?? startLine + faker.number.int({ min: 0, max: 40 });
+    return chunkFactory.create(
       {
-        repositoryId: repo.id,
+        sourceId: repo.id,
         fileId: targetFile.id,
-        symbolName,
+        title,
         content: seed.content,
-        searchTerms: searchTermsFor(`${symbolName ?? ''}\n${seed.content}`),
+        searchTerms: searchTermsFor(`${title ?? ''}\n${seed.content}`),
         embedding: axisVector(seed.axis ?? QUERY_AXIS),
         embeddingModel: seed.embeddingModel ?? identity,
-        ...(seed.startLine !== undefined && { startLine: seed.startLine }),
-        ...(seed.endLine !== undefined && { endLine: seed.endLine }),
+        startLine,
+        endLine,
+        locator: { kind: 'lines', startLine, endLine },
       },
       create(),
     );
   };
 
   /** Fills the vector candidate list with chunks nearer to the query than anything the test cares about. */
-  const seedDistractors = async (repo: RepositoryRow, count: number) => {
+  const seedDistractors = async (repo: SourceRow, count: number) => {
     for (let index = 0; index < count; index++) {
       await seedChunk(repo, {
         content: `export const filler${index} = ${index};`,
@@ -84,8 +92,8 @@ describeWithDatabase('hybrid retrieval', (baseUrl) => {
     }
   };
 
-  const search = (query: string, repositoryIds: string[]) =>
-    retrieval.search({ query, repositoryIds });
+  const search = (query: string, sourceIds: string[]) =>
+    retrieval.search({ query, sourceIds });
 
   beforeAll(async () => {
     const prepared = await prepareDedicatedDatabase(baseUrl, 'retrieval');
@@ -111,11 +119,13 @@ describeWithDatabase('hybrid retrieval', (baseUrl) => {
       ],
     });
     retrieval = app.get(RetrievalService, { strict: false });
+    projectScope = app.get(ProjectScopeService, { strict: false });
     identity = app.get(EmbeddingsService, { strict: false }).identity;
   });
 
   afterEach(async () => {
-    await handle.db.delete(repositories);
+    await handle.db.delete(projects);
+    await handle.db.delete(sources);
   });
 
   afterAll(async () => {
@@ -123,14 +133,14 @@ describeWithDatabase('hybrid retrieval', (baseUrl) => {
     await handle?.pool.end();
   });
 
-  describe('repository scope', () => {
+  describe('source scope', () => {
     const identifier = 'computeInvoiceTotal';
     const content = `export function ${identifier}(items: number[]): number { return items.length; }`;
 
-    it('never returns chunks from a repository that was not selected', async () => {
+    it('never returns chunks from a source that was not selected', async () => {
       const repoA = await newRepository();
       const repoB = await newRepository();
-      // Repository B holds the nearest vector and the exact identifier, so only the filter can keep it out.
+      // Source B holds the nearest vector and the exact identifier, so only the filter can keep it out.
       await seedChunk(repoA, { content, axis: 3 });
       await seedChunk(repoB, { content });
 
@@ -138,9 +148,9 @@ describeWithDatabase('hybrid retrieval', (baseUrl) => {
       const scopedToB = await search(identifier, [repoB.id]);
       const both = await search(identifier, [repoA.id, repoB.id]);
 
-      expect(scopedToA.map((chunk) => chunk.repositoryId)).toEqual([repoA.id]);
-      expect(scopedToB.map((chunk) => chunk.repositoryId)).toEqual([repoB.id]);
-      expect(new Set(both.map((chunk) => chunk.repositoryId))).toEqual(
+      expect(scopedToA.map((chunk) => chunk.sourceId)).toEqual([repoA.id]);
+      expect(scopedToB.map((chunk) => chunk.sourceId)).toEqual([repoB.id]);
+      expect(new Set(both.map((chunk) => chunk.sourceId))).toEqual(
         new Set([repoA.id, repoB.id]),
       );
     });
@@ -156,9 +166,9 @@ describeWithDatabase('hybrid retrieval', (baseUrl) => {
     });
 
     it.each([
-      ["'; drop table code_chunks; --", 'quote and comment'],
+      ["'; drop table chunks; --", 'quote and comment'],
       ['a & b | !c <-> d:* ((', 'tsquery operators'],
-      ["x') OR repository_id IS NOT NULL --", 'boolean injection'],
+      ["x') OR source_id IS NOT NULL --", 'boolean injection'],
       ['\\', 'backslash'],
     ])('treats %s as plain text (%s)', async (hostile) => {
       const repoA = await newRepository();
@@ -168,15 +178,81 @@ describeWithDatabase('hybrid retrieval', (baseUrl) => {
 
       const results = await search(hostile, [repoA.id]);
 
-      expect(results.every((chunk) => chunk.repositoryId === repoA.id)).toBe(
-        true,
-      );
-      const [{ chunks }] = (
-        await handle.db.execute<{ chunks: number }>(
-          sql`select count(*)::int as chunks from code_chunks`,
+      expect(results.every((chunk) => chunk.sourceId === repoA.id)).toBe(true);
+      const [{ count }] = (
+        await handle.db.execute<{ count: number }>(
+          sql`select count(*)::int as count from chunks`,
         )
       ).rows;
-      expect(chunks).toBe(2);
+      expect(count).toBe(2);
+    });
+  });
+
+  describe('project scope', () => {
+    const identifier = 'computeInvoiceTotal';
+    const content = `export function ${identifier}() {}`;
+
+    const newProject = async (...members: SourceRow[]) => {
+      const project = await projectFactory.create({}, create());
+      for (const member of members) {
+        await projectSourceFactory.create(
+          { projectId: project.id, sourceId: member.id },
+          create(),
+        );
+      }
+      return project;
+    };
+
+    const searchProject = async (projectId: string) =>
+      search(identifier, await projectScope.resolveSourceIds(projectId));
+
+    it('never returns chunks of a source that shares a different project', async () => {
+      const repoA = await newRepository();
+      const repoB = await newRepository();
+      await seedChunk(repoA, { content, axis: 3 });
+      await seedChunk(repoB, { content });
+      const onlyA = await newProject(repoA);
+      await newProject(repoA, repoB);
+
+      const results = await searchProject(onlyA.id);
+
+      expect(results.length).toBeGreaterThan(0);
+      expect(results.every((chunk) => chunk.sourceId === repoA.id)).toBe(true);
+    });
+
+    it('returns nothing for an empty project', async () => {
+      const repo = await newRepository();
+      await seedChunk(repo, { content });
+      const empty = await newProject();
+
+      await expect(searchProject(empty.id)).resolves.toEqual([]);
+    });
+
+    it('keeps sources and chunks when a project is deleted', async () => {
+      const repo = await newRepository();
+      await seedChunk(repo, { content });
+      const project = await newProject(repo);
+
+      await handle.db.delete(projects).where(eq(projects.id, project.id));
+
+      expect(await handle.db.select().from(sources)).toHaveLength(1);
+      expect(await search(identifier, [repo.id])).toHaveLength(1);
+    });
+
+    it('drops a deleted source from its projects', async () => {
+      const kept = await newRepository();
+      const removed = await newRepository();
+      await seedChunk(kept, { content, axis: 3 });
+      await seedChunk(removed, { content });
+      const project = await newProject(kept, removed);
+
+      await handle.db.delete(sources).where(eq(sources.id, removed.id));
+
+      expect(await projectScope.resolveSourceIds(project.id)).toEqual([
+        kept.id,
+      ]);
+      const results = await searchProject(project.id);
+      expect(results.map((chunk) => chunk.sourceId)).toEqual([kept.id]);
     });
   });
 
@@ -341,11 +417,11 @@ describeWithDatabase('hybrid retrieval', (baseUrl) => {
   });
 
   describe('provenance', () => {
-    it('cites the repository, file and line range stored for each chunk', async () => {
+    it('cites the source, file and locator stored for each chunk', async () => {
       const repo = await newRepository();
       await seedChunk(repo, {
         content: 'export function computeInvoiceTotal() {}',
-        symbolName: 'computeInvoiceTotal',
+        title: 'computeInvoiceTotal',
         startLine: 12,
         endLine: 40,
       });
@@ -357,21 +433,21 @@ describeWithDatabase('hybrid retrieval', (baseUrl) => {
       for (const result of results) {
         const [stored] = await handle.db
           .select({
-            repositoryName: repositories.name,
-            relativePath: repositoryFiles.relativePath,
-            startLine: codeChunks.startLine,
-            endLine: codeChunks.endLine,
-            symbolName: codeChunks.symbolName,
-            content: codeChunks.content,
+            sourceName: sources.name,
+            sourceKind: sources.kind,
+            relativePath: sourceFiles.relativePath,
+            title: chunks.title,
+            contentKind: chunks.contentKind,
+            locator: chunks.locator,
+            content: chunks.content,
           })
-          .from(codeChunks)
-          .innerJoin(repositoryFiles, eq(repositoryFiles.id, codeChunks.fileId))
-          .innerJoin(repositories, eq(repositories.id, codeChunks.repositoryId))
-          .where(eq(codeChunks.id, result.chunkId));
+          .from(chunks)
+          .innerJoin(sourceFiles, eq(sourceFiles.id, chunks.fileId))
+          .innerJoin(sources, eq(sources.id, chunks.sourceId))
+          .where(eq(chunks.id, result.chunkId));
         expect(stored).toBeDefined();
-        expect(result).toMatchObject({ ...stored, repositoryId: repo.id });
-        expect(result.startLine).toBeGreaterThanOrEqual(1);
-        expect(result.endLine).toBeGreaterThanOrEqual(result.startLine);
+        expect(result).toMatchObject({ ...stored, sourceId: repo.id });
+        expect(result.locator.kind).toBe('lines');
       }
     });
   });
@@ -381,25 +457,62 @@ describeWithDatabase('hybrid retrieval', (baseUrl) => {
       const repo = await newRepository();
       const target = await seedChunk(repo, {
         content: 'export function computeInvoiceTotal() {}',
-        symbolName: 'computeInvoiceTotal',
+        title: 'computeInvoiceTotal',
       });
 
       const response = await authorizedAgent(app)
         .post('/search')
-        .send({ query: 'computeInvoiceTotal', repositoryIds: [repo.id] })
+        .send({ query: 'computeInvoiceTotal', sourceIds: [repo.id] })
         .expect(200);
 
       const body = response.body as SearchResponse;
       expect(body.results).toHaveLength(1);
       expect(body.results[0]).toMatchObject({
         chunkId: target.id,
-        repositoryId: repo.id,
-        repositoryName: repo.name,
-        symbolName: 'computeInvoiceTotal',
+        sourceId: repo.id,
+        sourceName: repo.name,
+        sourceKind: 'code_repository',
+        title: 'computeInvoiceTotal',
+        contentKind: 'code',
+        locator: target.locator,
         sources: ['vector', 'lexical'],
         vectorRank: 1,
         lexicalRank: 1,
       });
+    });
+
+    it('searches the sources of a project', async () => {
+      const repoA = await newRepository();
+      const repoB = await newRepository();
+      const target = await seedChunk(repoA, {
+        content: 'export function computeInvoiceTotal() {}',
+      });
+      await seedChunk(repoB, {
+        content: 'export function computeInvoiceTotal() {}',
+      });
+      const project = await projectFactory.create({}, create());
+      await projectSourceFactory.create(
+        { projectId: project.id, sourceId: repoA.id },
+        create(),
+      );
+
+      const response = await authorizedAgent(app)
+        .post('/search')
+        .send({ query: 'computeInvoiceTotal', projectId: project.id })
+        .expect(200);
+
+      expect(
+        (response.body as SearchResponse).results.map(
+          (result) => result.chunkId,
+        ),
+      ).toEqual([target.id]);
+    });
+
+    it('returns 404 for an unknown project', async () => {
+      await authorizedAgent(app)
+        .post('/search')
+        .send({ query: 'anything', projectId: faker.string.uuid() })
+        .expect(404);
     });
   });
 });

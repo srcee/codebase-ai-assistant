@@ -47,7 +47,7 @@ export class DatabaseService implements OnApplicationShutdown {
         select
           exists (select 1 from pg_extension where extname = 'vector') as vector_extension,
           (select a.atttypmod from pg_attribute a
-            where a.attrelid = to_regclass('code_chunks')
+            where a.attrelid = to_regclass('chunks')
               and a.attname = 'embedding' and not a.attisdropped) as embedding_dimensions
       `);
       const row = result.rows[0];

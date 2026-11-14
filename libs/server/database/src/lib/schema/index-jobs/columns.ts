@@ -1,13 +1,13 @@
 import type { BuildExtraConfigColumns } from 'drizzle-orm';
 import { integer, text, timestamp, uuid } from 'drizzle-orm/pg-core';
-import { repositories } from '../repositories/table';
 import { createdAt, id } from '../shared/columns';
+import { sources } from '../sources/table';
 
 export const columns = {
   id: id(),
-  repositoryId: uuid('repository_id')
+  sourceId: uuid('source_id')
     .notNull()
-    .references(() => repositories.id, { onDelete: 'cascade' }),
+    .references(() => sources.id, { onDelete: 'cascade' }),
   status: text('status').notNull().default('queued'),
   filesDiscovered: integer('files_discovered').notNull().default(0),
   filesIndexed: integer('files_indexed').notNull().default(0),

@@ -3,8 +3,8 @@ import { index, uniqueIndex } from 'drizzle-orm/pg-core';
 import type { Columns } from './columns';
 
 export const indexes = (table: Columns) => [
-  index('index_jobs_repository_idx').on(table.repositoryId),
-  uniqueIndex('index_jobs_one_active_per_repository_key')
-    .on(table.repositoryId)
+  index('index_jobs_source_idx').on(table.sourceId),
+  uniqueIndex('index_jobs_one_active_per_source_key')
+    .on(table.sourceId)
     .where(sql`${table.status} in ('queued', 'running')`),
 ];

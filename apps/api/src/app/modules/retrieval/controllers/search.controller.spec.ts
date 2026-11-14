@@ -6,27 +6,36 @@ import { faker } from '@codebase-ai/shared-testing';
 import { authorizedAgent } from '../../../../testing/authorized-agent';
 import { createTestApp } from '../../../../testing/create-test-app';
 import { retrievedChunkFactory } from '../../../../testing/factories/search-candidate.factory';
+import { ProjectScopeService } from '../../projects/services/project-scope.service';
 import { RetrievalService } from '../services/retrieval.service';
 
 describe('SearchController', () => {
+  // Every test boots the whole app, which can take over 5s during a parallel coverage run.
+  jest.setTimeout(30_000);
+
   const search = jest.fn();
+  const resolveSourceIds = jest.fn();
   let app: INestApplication | undefined;
 
   const start = async (env: Record<string, string>) => {
     app = await createTestApp({
       config: testConfig(env),
-      overrides: [{ provide: RetrievalService, useValue: { search } }],
+      overrides: [
+        { provide: RetrievalService, useValue: { search } },
+        { provide: ProjectScopeService, useValue: { resolveSourceIds } },
+      ],
     });
     return app;
   };
 
   const validBody = () => ({
     query: faker.lorem.sentence(),
-    repositoryIds: [faker.string.uuid()],
+    sourceIds: [faker.string.uuid()],
   });
 
   beforeEach(() => {
     search.mockReset().mockResolvedValue([]);
+    resolveSourceIds.mockReset();
   });
 
   afterEach(async () => {
@@ -78,6 +87,21 @@ describe('SearchController', () => {
       ]);
     });
 
+    it('searches the sources of a project', async () => {
+      const projectId = faker.string.uuid();
+      const sourceIds = [faker.string.uuid(), faker.string.uuid()];
+      resolveSourceIds.mockResolvedValue(sourceIds);
+      const query = faker.lorem.sentence();
+
+      await authorizedAgent(await start(enabled))
+        .post('/search')
+        .send({ query, projectId })
+        .expect(200);
+
+      expect(resolveSourceIds).toHaveBeenCalledWith(projectId);
+      expect(search).toHaveBeenCalledWith({ query, sourceIds });
+    });
+
     it('reports a missing rank as null', async () => {
       search.mockResolvedValue([retrievedChunkFactory.build()]);
 
@@ -93,27 +117,32 @@ describe('SearchController', () => {
     });
 
     it.each([
-      ['no query', { repositoryIds: [faker.string.uuid()] }],
-      ['a blank query', { query: '   ', repositoryIds: [faker.string.uuid()] }],
+      ['no query', { sourceIds: [faker.string.uuid()] }],
+      ['a blank query', { query: '   ', sourceIds: [faker.string.uuid()] }],
       [
         'a query over 2000 characters',
-        { query: 'a'.repeat(2001), repositoryIds: [faker.string.uuid()] },
+        { query: 'a'.repeat(2001), sourceIds: [faker.string.uuid()] },
       ],
-      ['no repositories', { query: 'x' }],
-      ['an empty repository list', { query: 'x', repositoryIds: [] }],
-      ['an invalid repository id', { query: 'x', repositoryIds: ['nope'] }],
+      ['no scope', { query: 'x' }],
       [
-        'more than 20 repositories',
+        'both sources and a project',
+        { ...validBody(), projectId: faker.string.uuid() },
+      ],
+      ['an invalid project id', { query: 'x', projectId: 'nope' }],
+      ['an empty source list', { query: 'x', sourceIds: [] }],
+      ['an invalid source id', { query: 'x', sourceIds: ['nope'] }],
+      [
+        'more than 20 sources',
         {
           query: 'x',
-          repositoryIds: Array.from({ length: 21 }, () => faker.string.uuid()),
+          sourceIds: Array.from({ length: 21 }, () => faker.string.uuid()),
         },
       ],
       [
-        'a repeated repository id',
+        'a repeated source id',
         {
           query: 'x',
-          repositoryIds: Array(2).fill('2f0c2b6e-6c5b-4a43-9d0b-6a3a2c1f9e11'),
+          sourceIds: Array(2).fill('2f0c2b6e-6c5b-4a43-9d0b-6a3a2c1f9e11'),
         },
       ],
       ['an extra property', { ...validBody(), provider: 'remote' }],
@@ -123,6 +152,7 @@ describe('SearchController', () => {
         .send(body)
         .expect(400);
       expect(search).not.toHaveBeenCalled();
+      expect(resolveSourceIds).not.toHaveBeenCalled();
     });
   });
 });

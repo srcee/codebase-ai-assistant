@@ -56,6 +56,8 @@ PostgreSQL with pgvector runs in Docker (`docker-compose.yml`), bound to `127.0.
 | `npm run db:reset`                            | Delete all local data, then start and migrate a fresh database    |
 | `npm run db:test:up` / `npm run db:test:down` | Start / remove the throwaway test database (port 5433, in memory) |
 
+Stage 8 replaced the migrations with a new baseline (decision 0009). A database migrated before Stage 8 fails `npm run db:migrate`; run `npm run db:reset` and index the codebases again.
+
 Integration tests use `TEST_DATABASE_URL` and are skipped when it is unset. They drop the `public` schema, so the database name must end in `_test`. The API suite uses its own `<name>_api_test` database on the same server (created if missing) so it can run in parallel with the schema suite. `GET /health` returns 503 with `status: "degraded"` when the database is unreachable, the `vector` extension is missing, the schema is not migrated, or the embedding column dimension differs from `EMBEDDING_DIMENSIONS`.
 
 ### Layout
@@ -119,7 +121,7 @@ Logs go to stdout and are never shipped anywhere. `LOG_LEVEL` (`error`, `warn`, 
 The `ingestion` module turns a registered repository into chunks. It has no endpoints and writes nothing to the database; the `indexing` module calls it. See [decision 0004](docs/decisions/0004-ingestion-discovery-and-chunking.md).
 
 - `FileDiscoveryService.discover(canonicalPath)` walks the repository in a stable order and yields one entry per file or excluded directory: `included` (language, size, SHA-256 of the raw bytes, decoded text) or `skipped` with a reason. Links and junctions are never followed.
-- `ChunkingService.chunk(file)` returns chunks with `relativePath`, `language`, `symbolName?`, 1-based inclusive `startLine` and `endLine`, `content`, a SHA-256 `chunkHash`, and `searchTerms` (the distinct lower-case words of the chunk plus the parts of camelCase words, stored in `code_chunks.search_terms` because Postgres keeps text such as `this.userService.findOne` as one lexeme; this is what lets full-text search match `find` or `user`). `CHUNKING_VERSION` identifies the algorithm.
+- `ChunkingService.chunk(file)` returns chunks with `relativePath`, `language`, `symbolName?`, 1-based inclusive `startLine` and `endLine`, `content`, a SHA-256 `chunkHash`, and `searchTerms` (the distinct lower-case words of the chunk plus the parts of camelCase words, stored in `chunks.search_terms` because Postgres keeps text such as `this.userService.findOne` as one lexeme; this is what lets full-text search match `find` or `user`). `CHUNKING_VERSION` identifies the algorithm.
 - Languages are defined once in `ingestion/constants/languages.ts`: an id, its extensions, optional exact filenames (`Dockerfile`, `Makefile`), and a chunking strategy. TypeScript and JavaScript are chunked by symbol; every other language (Python, Go, Java, Kotlin, Scala, Rust, C#, C, C++, Swift, Dart, Ruby, PHP, Perl, Lua, R, Julia, Elixir, Erlang, Haskell, Clojure, Zig, shell, PowerShell, SQL, HTML, CSS/SCSS/Less, Vue, Svelte, GraphQL, Protobuf, Terraform, Dockerfile, Makefile, plus JSON and Markdown) is chunked by whole lines. YAML, TOML, INI, `.properties`, XML, and `.env` are deliberately not indexed because they commonly hold unquoted secrets. To add a language, add one entry to that list; a new symbol-aware chunker is only needed for better chunk boundaries.
 - Skip reasons: `symlink`, `excluded-path` (VCS, dependencies, build output, caches, lockfiles, minified bundles, binaries, archives), `secret-filename` (`.env*`, keys, certificates, `id_rsa*`, credentials files), `custom-exclusion`, `gitignored`, `unsupported-extension`, `too-large`, `total-size-limit`, `unreadable`, `binary`, `invalid-encoding`, `line-too-long`, `secret-content`.
 - Skip reasons are the only trace of a skipped file. Content, matches, and paths are never logged.
@@ -137,26 +139,46 @@ The `indexing` module runs discovery, chunking, and embedding for a registered c
 
 - Incremental: a file is skipped when its content hash, embedding identity (`<runtime>/<model>`, for example `ollama/nomic-embed-text`), and `CHUNKING_VERSION` all match. Changed files are re-chunked; chunks whose hash already has a vector for the same identity in the same codebase reuse it, so renames and unchanged symbols cost no embedding calls. Changing `INFERENCE_RUNTIME`, `EMBEDDING_MODEL`, or `CHUNKING_VERSION` re-embeds everything on the next run.
 - Each file is written in one transaction. Rows for paths no longer discovered are removed after a successful walk.
+- Code chunks are stored with the symbol name as `title`, `content_kind = 'code'`, and a `lines` locator.
 - Skipped files are stored with their reason and no hash or content.
 - Failure modes: `404` unknown codebase or no job yet; `409` a job is already active; `503` no `DATABASE_URL`. Inference unavailable, a missing model, a dimension mismatch, or a moved repository root fails the job with a fixed summary; a request the runtime rejects (for example input over the model context) fails that file only. Deleting a codebase stops its job before the next file. Jobs still active when the API stopped are marked `failed` on the next start.
 - Logs carry job and codebase ids, counts, and timings only.
 
+### Projects
+
+A project groups sources (code repositories now, document collections later) so one search can span them. See [decision 0009](docs/decisions/0009-knowledge-sources-and-projects.md).
+
+| Endpoint                    | Body                      | Success                                             |
+| --------------------------- | ------------------------- | --------------------------------------------------- |
+| `POST /projects`            | `{ name, description? }`  | `201` with the project and an empty `sourceIds`     |
+| `GET /projects`             |                           | `200` with a list ordered by name                   |
+| `GET /projects/:id`         |                           | `200` with the project                              |
+| `PATCH /projects/:id`       | `{ name?, description? }` | `200`; `description: null` clears it                |
+| `PUT /projects/:id/sources` | `{ sourceIds }`           | `200`; replaces the whole set (0 to 100 unique ids) |
+| `DELETE /projects/:id`      |                           | `204`; its sources and their chunks are kept        |
+
+- Names are 1 to 100 characters without control characters and need not be unique; descriptions are up to 2000 characters.
+- A source can belong to several projects. Deleting a source removes it from every project.
+- Failure modes: `400` invalid body, malformed `:id`, or a source id that does not exist (the ids are not echoed, and the old set is kept); `404` unknown project; `503` no `DATABASE_URL`.
+- Logs carry project ids and source counts only.
+
 ### Retrieval
 
-The `retrieval` module finds the chunks that answer a question. `RetrievalService.search({ query, repositoryIds })` embeds the query (`embedQuery`), runs a pgvector cosine search and a full-text search, and fuses the two ranked lists with Reciprocal Rank Fusion (`1 / (RETRIEVAL_RRF_K + rank)`). It then drops chunks that overlap a better chunk of the same file and stops at `RETRIEVAL_MAX_CHUNKS` or `RETRIEVAL_MAX_CONTEXT_CHARS`. Each result carries its repository id and name, relative path, line range, symbol, score, and which searches found it with their ranks.
+The `retrieval` module finds the chunks that answer a question. `RetrievalService.search({ query, sourceIds })` embeds the query (`embedQuery`), runs a pgvector cosine search and a full-text search, and fuses the two ranked lists with Reciprocal Rank Fusion (`1 / (RETRIEVAL_RRF_K + rank)`). It then drops chunks whose locator overlaps a better chunk of the same file and stops at `RETRIEVAL_MAX_CHUNKS` or `RETRIEVAL_MAX_CONTEXT_CHARS`. Each result carries its source id, name, and kind, relative path, title, content kind, locator, score, and which searches found it with their ranks.
 
-- Both searches filter by `repositoryIds` in SQL. An empty or unknown id list returns nothing, never every repository.
-- Vector search compares only chunks embedded with the current embedding identity, and sets `hnsw.iterative_scan` and `hnsw.ef_search` for the query so the repository filter cannot starve the HNSW scan.
-- Full-text search is an OR query over lower-case alphanumeric terms from `code_chunks.search_terms`, so identifiers, camelCase parts, and dotted names match. A chunk containing the query as an adjacent phrase ranks first, which favors exact error strings. Terms are built by the app and bound as parameters, so query text cannot alter the SQL.
-- `POST /search` with `{ query, repositoryIds }` (1 to 20 ids, query up to 2000 characters) returns `{ results }` for inspecting retrieval. It returns `404` unless `RETRIEVAL_DEBUG_ENDPOINT=true`, and the token and loopback checks run first. Treat the response as source code.
-- Failure modes: `503` when the embedding model is unavailable (there is no lexical-only fallback), when `DATABASE_URL` is unset, or when a query exceeds `DATABASE_STATEMENT_TIMEOUT_MS`; `400` for an invalid body.
+- Both searches filter by `sourceIds` in SQL. An empty or unknown id list returns nothing, never every source.
+- A locator says where a chunk sits in its file: `lines`, `section`, `page`, `table_rows`, `schema_entity`, or `image` (shape in `libs/shared/contracts`). It is checked by a CHECK constraint on its kind and parsed with zod when read, so a malformed row fails the request instead of reaching a prompt.
+- Vector search compares only chunks embedded with the current embedding identity, and sets `hnsw.iterative_scan` and `hnsw.ef_search` for the query so the source filter cannot starve the HNSW scan.
+- Full-text search is an OR query over lower-case alphanumeric terms from `chunks.search_terms`, so identifiers, camelCase parts, and dotted names match. A chunk containing the query as an adjacent phrase ranks first, which favors exact error strings. Terms are built by the app and bound as parameters, so query text cannot alter the SQL.
+- `POST /search` with `{ query, sourceIds }` (1 to 20 ids) or `{ query, projectId }` (query up to 2000 characters) returns `{ results }` for inspecting retrieval. The server resolves a project to its sources. It returns `404` unless `RETRIEVAL_DEBUG_ENDPOINT=true`, and the token and loopback checks run first. Treat the response as source code.
+- Failure modes: `503` when the embedding model is unavailable (there is no lexical-only fallback), when `DATABASE_URL` is unset, or when a query exceeds `DATABASE_STATEMENT_TIMEOUT_MS`; `400` for an invalid body, including both or neither of `sourceIds` and `projectId`; `404` for an unknown project.
 - Logs carry counts and timings only, never the query or chunk content.
 
 #### Evaluation
 
 `libs/server/testing/eval` holds a synthetic 30-file project (`corpus/`, no real code or secrets) and a versioned set of questions (`questions.v1.json`) with the expected file and line range for each. The set covers identifiers, snake_case names, error strings, paraphrases, and cross-file questions. A spec checks that every range exists and contains its anchor text, and that the corpus passes the secret scan.
 
-`retrieval.eval.spec.ts` indexes the corpus into a dedicated `_eval_test` database with the real local embedding model, runs every question in vector, lexical, and hybrid mode, and writes `libs/server/testing/eval/reports/<label>.json` and `.md`. A result hits an expected location when it is in the same file and the line ranges overlap. The reports give Recall@5, Recall@10, MRR@10, p50 and p95 latency (including the query embedding for vector and hybrid), Recall@10 by category, indexing coverage, and the settings used. The result window is fixed at 10 chunks so Recall@10 can be measured; other `RETRIEVAL_*`, `CHUNK_*`, and `EMBEDDING_*` settings come from the environment, so a tuning run is the same command with different variables.
+`retrieval.eval.spec.ts` indexes the corpus into a dedicated `_eval_test` database with the real local embedding model, runs every question in vector, lexical, and hybrid mode, and writes `libs/server/testing/eval/reports/<label>.json` and `.md`. A result hits an expected location when it is in the same file and its locator overlaps the expected line range. The reports give Recall@5, Recall@10, MRR@10, p50 and p95 latency (including the query embedding for vector and hybrid), Recall@10 by category, indexing coverage, and the settings used. The result window is fixed at 10 chunks so Recall@10 can be measured; other `RETRIEVAL_*`, `CHUNK_*`, and `EMBEDDING_*` settings come from the environment, so a tuning run is the same command with different variables.
 
 ```powershell
 npm run db:test:up

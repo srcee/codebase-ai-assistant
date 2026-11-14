@@ -1,10 +1,11 @@
+import type { Locator } from '@codebase-ai/contracts';
+import { locatorsOverlap } from '../../app/modules/retrieval/utils/locators-overlap';
 import type { ExpectedLocation, QuestionCategory } from './eval-questions';
 
 /** Where a result can be cited from; retrieval candidates already have this shape. */
 export interface ResultLocation {
   relativePath: string;
-  startLine: number;
-  endLine: number;
+  locator: Locator;
 }
 
 export const SEARCH_MODES = ['vector', 'lexical', 'hybrid'] as const;
@@ -12,15 +13,18 @@ export type SearchMode = (typeof SEARCH_MODES)[number];
 
 export const MRR_CUTOFF = 10;
 
-/** A result hits an expected location when it is in the same file and the line ranges overlap. */
+/** A result hits an expected location when it is in the same file and its locator overlaps the expected lines. */
 export function isHit(
   result: ResultLocation,
   expected: Pick<ExpectedLocation, 'path' | 'startLine' | 'endLine'>,
 ): boolean {
   return (
     result.relativePath === expected.path &&
-    result.startLine <= expected.endLine &&
-    expected.startLine <= result.endLine
+    locatorsOverlap(result.locator, {
+      kind: 'lines',
+      startLine: expected.startLine,
+      endLine: expected.endLine,
+    })
   );
 }
 

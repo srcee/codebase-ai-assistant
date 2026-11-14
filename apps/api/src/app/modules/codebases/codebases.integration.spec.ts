@@ -4,11 +4,14 @@ import { Logger, type INestApplication } from '@nestjs/common';
 import type { CodebaseResponse } from '@codebase-ai/contracts';
 import { type DatabaseHandle, schema } from '@codebase-ai/server-database';
 import {
-  codeChunkFactory,
+  chunkFactory,
   describeWithDatabase,
   indexJobFactory,
   prepareDedicatedDatabase,
-  repositoryFileFactory,
+  projectFactory,
+  projectSourceFactory,
+  sourceFactory,
+  sourceFileFactory,
 } from '@codebase-ai/server-database/testing';
 import {
   createSandbox,
@@ -60,7 +63,8 @@ describeWithDatabase('codebases API', (baseUrl) => {
 
   afterEach(async () => {
     jest.restoreAllMocks();
-    await handle.db.delete(schema.repositories);
+    await handle.db.delete(schema.projects);
+    await handle.db.delete(schema.sources);
   });
 
   afterAll(async () => {
@@ -145,6 +149,18 @@ describeWithDatabase('codebases API', (baseUrl) => {
     it('returns 400 for a malformed id', async () => {
       await api().get('/codebases/not-a-uuid').expect(400);
       await api().delete('/codebases/not-a-uuid').expect(400);
+    });
+
+    it('never lists, gets, or deletes a document collection', async () => {
+      const collection = await sourceFactory.create(
+        { kind: 'document_collection', origin: 'folder' },
+        dbOptions(),
+      );
+
+      await api().get('/codebases').expect(200).expect([]);
+      await api().get(`/codebases/${collection.id}`).expect(404);
+      await api().delete(`/codebases/${collection.id}`).expect(404);
+      await api().post(`/codebases/${collection.id}/index`).expect(404);
     });
   });
 
@@ -233,15 +249,20 @@ describeWithDatabase('codebases API', (baseUrl) => {
   });
 
   describe('deletion cascade', () => {
-    it('removes files, chunks, and jobs with the codebase', async () => {
+    it('removes files, chunks, jobs, and project links with the codebase', async () => {
       const created = await registerCodebase('alpha');
-      const file = await repositoryFileFactory.create(
-        { repositoryId: created.id },
+      const file = await sourceFileFactory.create(
+        { sourceId: created.id },
         dbOptions(),
       );
-      await indexJobFactory.create({ repositoryId: created.id }, dbOptions());
-      await codeChunkFactory.create(
-        { repositoryId: created.id, fileId: file.id },
+      await indexJobFactory.create({ sourceId: created.id }, dbOptions());
+      await chunkFactory.create(
+        { sourceId: created.id, fileId: file.id },
+        dbOptions(),
+      );
+      const project = await projectFactory.create({}, dbOptions());
+      await projectSourceFactory.create(
+        { projectId: project.id, sourceId: created.id },
         dbOptions(),
       );
 
@@ -253,23 +274,25 @@ describeWithDatabase('codebases API', (baseUrl) => {
             `select count(*)::int as n from ${table}`,
           )
         ).rows[0].n;
-      expect(await count('repository_files')).toBe(0);
-      expect(await count('code_chunks')).toBe(0);
+      expect(await count('source_files')).toBe(0);
+      expect(await count('chunks')).toBe(0);
       expect(await count('index_jobs')).toBe(0);
+      expect(await count('project_sources')).toBe(0);
+      expect(await count('projects')).toBe(1);
     });
 
     it('keeps other codebases intact', async () => {
       const first = await registerCodebase('alpha');
       const second = await registerCodebase('beta');
-      await indexJobFactory.create({ repositoryId: first.id }, dbOptions());
-      await indexJobFactory.create({ repositoryId: second.id }, dbOptions());
+      await indexJobFactory.create({ sourceId: first.id }, dbOptions());
+      await indexJobFactory.create({ sourceId: second.id }, dbOptions());
 
       await api().delete(`/codebases/${first.id}`).expect(204);
 
-      const { rows } = await handle.pool.query<{ repository_id: string }>(
-        'select repository_id from index_jobs',
+      const { rows } = await handle.pool.query<{ source_id: string }>(
+        'select source_id from index_jobs',
       );
-      expect(rows.map((row) => row.repository_id)).toEqual([second.id]);
+      expect(rows.map((row) => row.source_id)).toEqual([second.id]);
     });
   });
 });

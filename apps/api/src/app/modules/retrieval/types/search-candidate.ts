@@ -1,14 +1,15 @@
+import type { ContentKind, Locator, SourceKind } from '@codebase-ai/contracts';
+
 export type RetrievalSource = 'vector' | 'lexical';
 
 export interface SearchCandidate {
   chunkId: string;
-  repositoryId: string;
-  repositoryName: string;
+  sourceId: string;
+  sourceName: string;
+  sourceKind: SourceKind;
   relativePath: string;
-  /** 1-based, inclusive. */
-  startLine: number;
-  /** 1-based, inclusive. */
-  endLine: number;
-  symbolName: string | null;
+  title: string | null;
+  contentKind: ContentKind;
+  locator: Locator;
   content: string;
 }

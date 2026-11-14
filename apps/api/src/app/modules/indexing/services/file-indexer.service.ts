@@ -12,12 +12,12 @@ import type {
 import type { FileOutcome } from '../types/file-outcome';
 import type { IndexContext } from '../types/index-context';
 
-const { codeChunks, repositoryFiles } = schema;
+const { chunks: chunkTable, sourceFiles } = schema;
 
-type ChunkInsert = typeof codeChunks.$inferInsert;
+type ChunkInsert = typeof chunkTable.$inferInsert;
 type FileValues = Omit<
-  typeof repositoryFiles.$inferInsert,
-  'id' | 'repositoryId' | 'relativePath'
+  typeof sourceFiles.$inferInsert,
+  'id' | 'sourceId' | 'relativePath'
 >;
 
 const STALE_DELETE_BATCH = 1000;
@@ -37,16 +37,16 @@ export class FileIndexerService {
   ): Promise<FileOutcome> {
     const [existing] = await this.database.db
       .select({
-        status: repositoryFiles.status,
-        contentHash: repositoryFiles.contentHash,
-        embeddingModel: repositoryFiles.embeddingModel,
-        chunkingVersion: repositoryFiles.chunkingVersion,
+        status: sourceFiles.status,
+        contentHash: sourceFiles.contentHash,
+        embeddingModel: sourceFiles.embeddingModel,
+        chunkingVersion: sourceFiles.chunkingVersion,
       })
-      .from(repositoryFiles)
+      .from(sourceFiles)
       .where(
         and(
-          eq(repositoryFiles.repositoryId, context.repositoryId),
-          eq(repositoryFiles.relativePath, file.relativePath),
+          eq(sourceFiles.sourceId, context.repositoryId),
+          eq(sourceFiles.relativePath, file.relativePath),
         ),
       );
     if (
@@ -83,9 +83,15 @@ export class FileIndexerService {
         chunkingVersion: context.chunkingVersion,
       },
       chunks.map((chunk) => ({
-        repositoryId: context.repositoryId,
+        sourceId: context.repositoryId,
         chunkHash: chunk.chunkHash,
-        symbolName: chunk.symbolName ?? null,
+        title: chunk.symbolName ?? null,
+        contentKind: 'code',
+        locator: {
+          kind: 'lines',
+          startLine: chunk.startLine,
+          endLine: chunk.endLine,
+        },
         startLine: chunk.startLine,
         endLine: chunk.endLine,
         content: chunk.content,
@@ -119,22 +125,22 @@ export class FileIndexerService {
   ): Promise<number> {
     const rows = await this.database.db
       .select({
-        id: repositoryFiles.id,
-        relativePath: repositoryFiles.relativePath,
+        id: sourceFiles.id,
+        relativePath: sourceFiles.relativePath,
       })
-      .from(repositoryFiles)
-      .where(eq(repositoryFiles.repositoryId, repositoryId));
+      .from(sourceFiles)
+      .where(eq(sourceFiles.sourceId, repositoryId));
     const stale = rows
       .filter((row) => !seenPaths.has(row.relativePath))
       .map((row) => row.id);
     for (let start = 0; start < stale.length; start += STALE_DELETE_BATCH) {
       await this.database.db
-        .delete(repositoryFiles)
+        .delete(sourceFiles)
         .where(
           and(
-            eq(repositoryFiles.repositoryId, repositoryId),
+            eq(sourceFiles.sourceId, repositoryId),
             inArray(
-              repositoryFiles.id,
+              sourceFiles.id,
               stale.slice(start, start + STALE_DELETE_BATCH),
             ),
           ),
@@ -153,17 +159,17 @@ export class FileIndexerService {
     if (hashes.length === 0) return vectors;
 
     const reused = await this.database.db
-      .selectDistinctOn([codeChunks.chunkHash], {
-        chunkHash: codeChunks.chunkHash,
-        embedding: codeChunks.embedding,
+      .selectDistinctOn([chunkTable.chunkHash], {
+        chunkHash: chunkTable.chunkHash,
+        embedding: chunkTable.embedding,
       })
-      .from(codeChunks)
+      .from(chunkTable)
       .where(
         and(
-          eq(codeChunks.repositoryId, context.repositoryId),
-          eq(codeChunks.embeddingModel, context.embeddingModel),
-          eq(codeChunks.chunkingVersion, context.chunkingVersion),
-          inArray(codeChunks.chunkHash, hashes),
+          eq(chunkTable.sourceId, context.repositoryId),
+          eq(chunkTable.embeddingModel, context.embeddingModel),
+          eq(chunkTable.chunkingVersion, context.chunkingVersion),
+          inArray(chunkTable.chunkHash, hashes),
         ),
       );
     for (const row of reused) vectors.set(row.chunkHash, row.embedding);
@@ -202,24 +208,24 @@ export class FileIndexerService {
     };
     await this.database.db.transaction(async (tx) => {
       const [file] = await tx
-        .insert(repositoryFiles)
-        .values({ repositoryId: context.repositoryId, relativePath, ...row })
+        .insert(sourceFiles)
+        .values({ sourceId: context.repositoryId, relativePath, ...row })
         .onConflictDoUpdate({
-          target: [repositoryFiles.repositoryId, repositoryFiles.relativePath],
+          target: [sourceFiles.sourceId, sourceFiles.relativePath],
           set: row,
         })
-        .returning({ id: repositoryFiles.id });
+        .returning({ id: sourceFiles.id });
       await tx
-        .delete(codeChunks)
+        .delete(chunkTable)
         .where(
           and(
-            eq(codeChunks.repositoryId, context.repositoryId),
-            eq(codeChunks.fileId, file.id),
+            eq(chunkTable.sourceId, context.repositoryId),
+            eq(chunkTable.fileId, file.id),
           ),
         );
       if (chunkRows.length > 0) {
         await tx
-          .insert(codeChunks)
+          .insert(chunkTable)
           .values(chunkRows.map((chunk) => ({ ...chunk, fileId: file.id })));
       }
     });

@@ -1,0 +1,21 @@
+meta {
+  name: Replace project sources
+  type: http
+  seq: 5
+}
+
+put {
+  url: {{baseUrl}}/projects/{{projectId}}/sources
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "sourceIds": ["{{codebaseId}}"]
+  }
+}
+
+assert {
+  res.status: eq 200
+}

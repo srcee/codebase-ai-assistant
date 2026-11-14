@@ -1,20 +1,23 @@
+import type { ContentKind, Locator, SourceKind } from './locators';
+
+/** Send exactly one of `sourceIds` or `projectId`. */
 export interface SearchRequest {
   query: string;
-  repositoryIds: string[];
+  sourceIds?: string[];
+  projectId?: string;
 }
 
 export type SearchSource = 'vector' | 'lexical';
 
 export interface SearchResult {
   chunkId: string;
-  repositoryId: string;
-  repositoryName: string;
+  sourceId: string;
+  sourceName: string;
+  sourceKind: SourceKind;
   relativePath: string;
-  /** 1-based, inclusive. */
-  startLine: number;
-  /** 1-based, inclusive. */
-  endLine: number;
-  symbolName: string | null;
+  title: string | null;
+  contentKind: ContentKind;
+  locator: Locator;
   content: string;
   /** Fused rank score; only comparable within one response. */
   score: number;

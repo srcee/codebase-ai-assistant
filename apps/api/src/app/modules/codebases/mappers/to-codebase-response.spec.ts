@@ -1,4 +1,4 @@
-import { repositoryFactory } from '@codebase-ai/server-database/testing';
+import { sourceFactory } from '@codebase-ai/server-database/testing';
 import {
   assertNotLeaked,
   codebaseResponseFactory,
@@ -8,7 +8,7 @@ import { toCodebaseResponse } from './to-codebase-response';
 
 describe('toCodebaseResponse', () => {
   it('maps a row to display data with ISO timestamps', () => {
-    const row = repositoryFactory.build({
+    const row = sourceFactory.build({
       status: 'ready',
       lastIndexedCommit: faker.git.commitSha(),
     });
@@ -26,13 +26,13 @@ describe('toCodebaseResponse', () => {
   });
 
   it('keeps a null relative path and a null last indexed commit', () => {
-    const response = toCodebaseResponse(repositoryFactory.build(), null);
+    const response = toCodebaseResponse(sourceFactory.build(), null);
     expect(response.relativePath).toBeNull();
     expect(response.lastIndexedCommit).toBeNull();
   });
 
   it('never exposes the canonical path or the privacy mode', () => {
-    const row = repositoryFactory.build();
+    const row = sourceFactory.build();
     const response = toCodebaseResponse(row, faker.word.noun());
 
     assertNotLeaked(response, row.canonicalPath);

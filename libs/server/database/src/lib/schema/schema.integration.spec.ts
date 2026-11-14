@@ -3,14 +3,16 @@ import { loadConfig } from '@codebase-ai/server-config';
 import { databaseHealthFactory, faker } from '@codebase-ai/shared-testing';
 import {
   assertDisposableDatabase,
-  type CodeChunkInsert,
-  codeChunkFactory,
+  type ChunkInsert,
+  chunkFactory,
   describeWithDatabase,
   indexJobFactory,
-  type RepositoryFileInsert,
-  repositoryFactory,
-  repositoryFileFactory,
+  projectFactory,
+  projectSourceFactory,
   resetSchema,
+  type SourceFileInsert,
+  sourceFactory,
+  sourceFileFactory,
   unitVector,
 } from '../../testing';
 import {
@@ -20,11 +22,13 @@ import {
 import { runMigrations } from '../connection/migrate';
 import { DatabaseService } from '../nest/database.service';
 import {
-  codeChunks,
+  chunks,
   EMBEDDING_DIMENSIONS,
   indexJobs,
-  repositories,
-  repositoryFiles,
+  projectSources,
+  projects,
+  sourceFiles,
+  sources,
 } from '.';
 
 /** Drizzle wraps driver errors; the Postgres details live on `cause`. */
@@ -41,9 +45,11 @@ async function failure(
 }
 
 type CountedTable =
-  | typeof repositoryFiles
-  | typeof codeChunks
-  | typeof indexJobs;
+  | typeof sources
+  | typeof sourceFiles
+  | typeof chunks
+  | typeof indexJobs
+  | typeof projectSources;
 
 describeWithDatabase('database schema', (url) => {
   let handle: DatabaseHandle;
@@ -55,20 +61,20 @@ describeWithDatabase('database schema', (url) => {
   const create = () => ({ transient: { db: handle.db } });
 
   async function seed(
-    file: Partial<RepositoryFileInsert> = {},
-    chunk: Partial<CodeChunkInsert> = {},
+    file: Partial<SourceFileInsert> = {},
+    chunk: Partial<ChunkInsert> = {},
   ) {
-    const repo = await repositoryFactory.create({}, create());
-    const savedFile = await repositoryFileFactory.create(
-      { repositoryId: repo.id, ...file },
+    const source = await sourceFactory.create({}, create());
+    const savedFile = await sourceFileFactory.create(
+      { sourceId: source.id, ...file },
       create(),
     );
-    await indexJobFactory.create({ repositoryId: repo.id }, create());
-    const savedChunk = await codeChunkFactory.create(
-      { repositoryId: repo.id, fileId: savedFile.id, ...chunk },
+    await indexJobFactory.create({ sourceId: source.id }, create());
+    const savedChunk = await chunkFactory.create(
+      { sourceId: source.id, fileId: savedFile.id, ...chunk },
       create(),
     );
-    return { repo, file: savedFile, chunk: savedChunk };
+    return { source, file: savedFile, chunk: savedChunk };
   }
 
   beforeAll(async () => {
@@ -78,7 +84,8 @@ describeWithDatabase('database schema', (url) => {
   });
 
   afterEach(async () => {
-    await handle.db.delete(repositories);
+    await handle.db.delete(projects);
+    await handle.db.delete(sources);
   });
 
   afterAll(async () => {
@@ -92,16 +99,18 @@ describeWithDatabase('database schema', (url) => {
       `select tablename from pg_tables where schemaname = 'public' order by 1`,
     );
     expect(rows.map((r) => r.tablename)).toEqual([
-      'code_chunks',
+      'chunks',
       'index_jobs',
-      'repositories',
-      'repository_files',
+      'project_sources',
+      'projects',
+      'source_files',
+      'sources',
     ]);
   });
 
   it('creates the vector, full-text, and hash indexes', async () => {
     const { rows } = await handle.pool.query(
-      `select indexdef from pg_indexes where tablename = 'code_chunks'`,
+      `select indexdef from pg_indexes where tablename = 'chunks'`,
     );
     const defs = rows.map((r) => r.indexdef as string).join('\n');
     expect(defs).toMatch(/USING hnsw .*vector_cosine_ops/);
@@ -122,35 +131,33 @@ describeWithDatabase('database schema', (url) => {
     }
   });
 
-  it('cascades repository deletion to files, chunks, and jobs', async () => {
-    const { repo } = await seed();
-    expect(await count(codeChunks)).toBe(1);
-    await handle.db.delete(repositories).where(eq(repositories.id, repo.id));
-    expect(await count(repositoryFiles)).toBe(0);
-    expect(await count(codeChunks)).toBe(0);
+  it('cascades source deletion to files, chunks, and jobs', async () => {
+    const { source } = await seed();
+    expect(await count(chunks)).toBe(1);
+    await handle.db.delete(sources).where(eq(sources.id, source.id));
+    expect(await count(sourceFiles)).toBe(0);
+    expect(await count(chunks)).toBe(0);
     expect(await count(indexJobs)).toBe(0);
   });
 
   it('cascades file deletion to its chunks', async () => {
     const { file } = await seed();
-    await handle.db
-      .delete(repositoryFiles)
-      .where(eq(repositoryFiles.id, file.id));
-    expect(await count(codeChunks)).toBe(0);
+    await handle.db.delete(sourceFiles).where(eq(sourceFiles.id, file.id));
+    expect(await count(chunks)).toBe(0);
   });
 
-  it('enforces unique relative paths per repository', async () => {
-    const { repo, file } = await seed();
+  it('enforces unique relative paths per source', async () => {
+    const { source, file } = await seed();
     const error = await failure(
-      repositoryFileFactory.create(
-        { repositoryId: repo.id, relativePath: file.relativePath },
+      sourceFileFactory.create(
+        { sourceId: source.id, relativePath: file.relativePath },
         create(),
       ),
     );
     expect(error.code).toBe('23505');
   });
 
-  it('allows the same relative path in different repositories', async () => {
+  it('allows the same relative path in different sources', async () => {
     const relativePath = `src/${faker.word.noun()}.ts`;
     const first = await seed({ relativePath });
     const second = await seed({ relativePath });
@@ -158,10 +165,10 @@ describeWithDatabase('database schema', (url) => {
   });
 
   it('allows a skipped file without a content hash', async () => {
-    const repo = await repositoryFactory.create({}, create());
-    const file = await repositoryFileFactory.create(
+    const source = await sourceFactory.create({}, create());
+    const file = await sourceFileFactory.create(
       {
-        repositoryId: repo.id,
+        sourceId: source.id,
         status: 'skipped',
         contentHash: null,
         sizeBytes: null,
@@ -172,38 +179,38 @@ describeWithDatabase('database schema', (url) => {
   });
 
   it('requires a content hash for indexed and failed files', async () => {
-    const repo = await repositoryFactory.create({}, create());
+    const source = await sourceFactory.create({}, create());
     const error = await failure(
-      repositoryFileFactory.create(
-        { repositoryId: repo.id, contentHash: null },
+      sourceFileFactory.create(
+        { sourceId: source.id, contentHash: null },
         create(),
       ),
     );
     expect(error.code).toBe('23514');
   });
 
-  it('allows only one active index job per repository', async () => {
-    const repo = await repositoryFactory.create({}, create());
+  it('allows only one active index job per source', async () => {
+    const source = await sourceFactory.create({}, create());
     await indexJobFactory.create(
-      { repositoryId: repo.id, status: 'succeeded' },
+      { sourceId: source.id, status: 'succeeded' },
       create(),
     );
     await indexJobFactory.create(
-      { repositoryId: repo.id, status: 'running' },
+      { sourceId: source.id, status: 'running' },
       create(),
     );
     const error = await failure(
-      indexJobFactory.create({ repositoryId: repo.id }, create()),
+      indexJobFactory.create({ sourceId: source.id }, create()),
     );
     expect(error.code).toBe('23505');
   });
 
   it('rejects a vector with the wrong dimension', async () => {
-    const { repo, file } = await seed();
+    const { source, file } = await seed();
     const error = await failure(
-      codeChunkFactory.create(
+      chunkFactory.create(
         {
-          repositoryId: repo.id,
+          sourceId: source.id,
           fileId: file.id,
           embedding: unitVector(3),
         },
@@ -213,12 +220,12 @@ describeWithDatabase('database schema', (url) => {
     expect(error.message).toMatch(/expected 768 dimensions, not 3/);
   });
 
-  it('rejects a chunk whose file belongs to another repository', async () => {
+  it('rejects a chunk whose file belongs to another source', async () => {
     const a = await seed();
     const b = await seed();
     const error = await failure(
-      codeChunkFactory.create(
-        { repositoryId: b.repo.id, fileId: a.file.id },
+      chunkFactory.create(
+        { sourceId: b.source.id, fileId: a.file.id },
         create(),
       ),
     );
@@ -226,12 +233,12 @@ describeWithDatabase('database schema', (url) => {
   });
 
   it('rejects invalid line ranges', async () => {
-    const { repo, file } = await seed();
+    const { source, file } = await seed();
     const startLine = faker.number.int({ min: 2, max: 100 });
     const error = await failure(
-      codeChunkFactory.create(
+      chunkFactory.create(
         {
-          repositoryId: repo.id,
+          sourceId: source.id,
           fileId: file.id,
           startLine,
           endLine: startLine - 1,
@@ -242,35 +249,155 @@ describeWithDatabase('database schema', (url) => {
     expect(error.code).toBe('23514');
   });
 
-  it('populates the full-text column from symbol name and content', async () => {
+  it('allows a chunk without lines', async () => {
+    const { source, file } = await seed();
+    const page = faker.number.int({ min: 1, max: 50 });
+    const chunk = await chunkFactory.create(
+      {
+        sourceId: source.id,
+        fileId: file.id,
+        contentKind: 'prose',
+        locator: { kind: 'page', page },
+        startLine: null,
+        endLine: null,
+      },
+      create(),
+    );
+    expect(chunk.locator).toEqual({ kind: 'page', page });
+  });
+
+  it('rejects a chunk with only one line bound', async () => {
+    const { source, file } = await seed();
+    const error = await failure(
+      chunkFactory.create(
+        { sourceId: source.id, fileId: file.id, endLine: null },
+        create(),
+      ),
+    );
+    expect(error.code).toBe('23514');
+  });
+
+  it.each([
+    ['an unknown locator kind', { locator: { kind: 'paragraph' } }],
+    ['a locator without a kind', { locator: {} }],
+    ['an unknown content kind', { contentKind: 'video' }],
+  ])('rejects %s', async (_label, values) => {
+    const { source, file } = await seed();
+    const error = await failure(
+      chunkFactory.create(
+        {
+          sourceId: source.id,
+          fileId: file.id,
+          ...(values as unknown as Partial<ChunkInsert>),
+        },
+        create(),
+      ),
+    );
+    expect(error.code).toBe('23514');
+  });
+
+  it.each([
+    ['an unknown kind', { kind: 'wiki' }],
+    ['an unknown origin', { origin: 'remote' }],
+    [
+      'a document collection without an origin',
+      { kind: 'document_collection', origin: null },
+    ],
+  ])('rejects a source with %s', async (_label, values) => {
+    const error = await failure(sourceFactory.create(values, create()));
+    expect(error.code).toBe('23514');
+  });
+
+  it('accepts a document collection with an origin', async () => {
+    const source = await sourceFactory.create(
+      { kind: 'document_collection', origin: 'upload' },
+      create(),
+    );
+    expect(source.kind).toBe('document_collection');
+  });
+
+  it('rejects the same source twice in one project', async () => {
+    const project = await projectFactory.create({}, create());
+    const source = await sourceFactory.create({}, create());
+    const link = { projectId: project.id, sourceId: source.id };
+    await projectSourceFactory.create(link, create());
+    const error = await failure(projectSourceFactory.create(link, create()));
+    expect(error.code).toBe('23505');
+  });
+
+  it('keeps sources and chunks when a project is deleted', async () => {
+    const { source } = await seed();
+    const project = await projectFactory.create({}, create());
+    await projectSourceFactory.create(
+      { projectId: project.id, sourceId: source.id },
+      create(),
+    );
+    await handle.db.delete(projects).where(eq(projects.id, project.id));
+    expect(await count(projectSources)).toBe(0);
+    expect(await count(sources)).toBe(1);
+    expect(await count(chunks)).toBe(1);
+  });
+
+  it('removes a deleted source from its projects', async () => {
+    const { source } = await seed();
+    const project = await projectFactory.create({}, create());
+    await projectSourceFactory.create(
+      { projectId: project.id, sourceId: source.id },
+      create(),
+    );
+    await handle.db.delete(sources).where(eq(sources.id, source.id));
+    expect(await count(projectSources)).toBe(0);
+    const [kept] = await handle.db
+      .select()
+      .from(projects)
+      .where(eq(projects.id, project.id));
+    expect(kept).toEqual(project);
+  });
+
+  it('moves a project updated_at forward on every update', async () => {
+    const project = await projectFactory.create(
+      { updatedAt: faker.date.past() },
+      create(),
+    );
+    const [updated] = await handle.db
+      .update(projects)
+      .set({ name: faker.word.noun() })
+      .where(eq(projects.id, project.id))
+      .returning();
+    expect(updated.updatedAt.getTime()).toBeGreaterThan(
+      project.updatedAt.getTime(),
+    );
+  });
+
+  it('populates the full-text column from title and content', async () => {
     const { chunk } = await seed();
     const { rows } = await handle.pool.query(
-      `select 1 from code_chunks where search_vector @@ to_tsquery('simple', $1)`,
-      [chunk.symbolName?.toLowerCase()],
+      `select 1 from chunks where search_vector @@ to_tsquery('simple', $1)`,
+      [chunk.title?.toLowerCase()],
     );
     expect(rows).toHaveLength(1);
   });
 
-  it('makes the search terms and symbol name searchable with different weights', async () => {
+  it('makes the search terms and title searchable with different weights', async () => {
     const term = faker.string.alpha({ length: 12, casing: 'lower' });
     const { chunk } = await seed(
       {},
-      { symbolName: 'fixedsymbol', content: 'const x = 1;', searchTerms: term },
+      { title: 'fixedsymbol', content: 'const x = 1;', searchTerms: term },
     );
     const { rows } = await handle.pool.query(
       `select
          search_vector @@ to_tsquery('simple', $1) as by_term,
-         ts_rank(search_vector, to_tsquery('simple', $1)) < ts_rank(search_vector, to_tsquery('simple', 'fixedsymbol')) as symbol_outranks_term
-       from code_chunks where id = $2`,
+         ts_rank(search_vector, to_tsquery('simple', $1)) < ts_rank(search_vector, to_tsquery('simple', 'fixedsymbol')) as title_outranks_term
+       from chunks where id = $2`,
       [term, chunk.id],
     );
-    expect(rows[0]).toEqual({ by_term: true, symbol_outranks_term: true });
+    expect(rows[0]).toEqual({ by_term: true, title_outranks_term: true });
   });
 
   it('supports nearest-neighbour search by cosine distance', async () => {
     await seed();
     const { rows } = await handle.pool.query(
-      `select 1 from code_chunks order by embedding <=> $1::vector limit 1`,
+      `select 1 from chunks order by embedding <=> $1::vector limit 1`,
       [JSON.stringify(unitVector())],
     );
     expect(rows).toHaveLength(1);

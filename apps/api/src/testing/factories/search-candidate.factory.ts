@@ -8,12 +8,17 @@ export const searchCandidateFactory = Factory.define<SearchCandidate>(
     const startLine = faker.number.int({ min: 1, max: 500 });
     return {
       chunkId: faker.string.uuid(),
-      repositoryId: faker.string.uuid(),
-      repositoryName: `${faker.word.noun()}-${sequence}`,
+      sourceId: faker.string.uuid(),
+      sourceName: `${faker.word.noun()}-${sequence}`,
+      sourceKind: 'code_repository',
       relativePath: `src/${faker.word.noun()}-${sequence}.ts`,
-      startLine,
-      endLine: startLine + faker.number.int({ min: 0, max: 40 }),
-      symbolName: faker.word.noun(),
+      title: faker.word.noun(),
+      contentKind: 'code',
+      locator: {
+        kind: 'lines',
+        startLine,
+        endLine: startLine + faker.number.int({ min: 0, max: 40 }),
+      },
       content: faker.lorem.sentence(),
     };
   },

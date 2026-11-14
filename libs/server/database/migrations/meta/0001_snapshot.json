@@ -1,11 +1,11 @@
 {
-  "id": "2a4ce96e-9a91-4158-9b58-32d02aecb39b",
-  "prevId": "d8907acc-3a98-4286-99c8-ce1592fe9295",
+  "id": "87330442-128e-4f03-90e5-3175059f053d",
+  "prevId": "b600ff79-3795-4eb9-9ab2-f9b574536cb0",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
-    "public.code_chunks": {
-      "name": "code_chunks",
+    "public.chunks": {
+      "name": "chunks",
       "schema": "",
       "columns": {
         "id": {
@@ -15,8 +15,8 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "repository_id": {
-          "name": "repository_id",
+        "source_id": {
+          "name": "source_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
@@ -33,23 +33,35 @@
           "primaryKey": false,
           "notNull": true
         },
-        "symbol_name": {
-          "name": "symbol_name",
+        "title": {
+          "name": "title",
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "content_kind": {
+          "name": "content_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "locator": {
+          "name": "locator",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
         },
         "start_line": {
           "name": "start_line",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "end_line": {
           "name": "end_line",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "content": {
           "name": "content",
@@ -57,13 +69,20 @@
           "primaryKey": false,
           "notNull": true
         },
+        "search_terms": {
+          "name": "search_terms",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
         "search_vector": {
           "name": "search_vector",
           "type": "tsvector",
           "primaryKey": false,
           "notNull": false,
           "generated": {
-            "as": "to_tsvector('simple', coalesce(symbol_name, '') || ' ' || content)",
+            "as": "setweight(to_tsvector('simple', coalesce(title, '')), 'A') || to_tsvector('simple', content) || setweight(to_tsvector('simple', search_terms), 'C')",
             "type": "stored"
           }
         },
@@ -94,11 +113,11 @@
         }
       },
       "indexes": {
-        "code_chunks_repository_idx": {
-          "name": "code_chunks_repository_idx",
+        "chunks_source_idx": {
+          "name": "chunks_source_idx",
           "columns": [
             {
-              "expression": "repository_id",
+              "expression": "source_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -109,8 +128,8 @@
           "method": "btree",
           "with": {}
         },
-        "code_chunks_file_idx": {
-          "name": "code_chunks_file_idx",
+        "chunks_file_idx": {
+          "name": "chunks_file_idx",
           "columns": [
             {
               "expression": "file_id",
@@ -124,8 +143,8 @@
           "method": "btree",
           "with": {}
         },
-        "code_chunks_chunk_hash_idx": {
-          "name": "code_chunks_chunk_hash_idx",
+        "chunks_chunk_hash_idx": {
+          "name": "chunks_chunk_hash_idx",
           "columns": [
             {
               "expression": "chunk_hash",
@@ -139,8 +158,8 @@
           "method": "btree",
           "with": {}
         },
-        "code_chunks_search_vector_idx": {
-          "name": "code_chunks_search_vector_idx",
+        "chunks_search_vector_idx": {
+          "name": "chunks_search_vector_idx",
           "columns": [
             {
               "expression": "search_vector",
@@ -154,8 +173,8 @@
           "method": "gin",
           "with": {}
         },
-        "code_chunks_embedding_hnsw_idx": {
-          "name": "code_chunks_embedding_hnsw_idx",
+        "chunks_embedding_hnsw_idx": {
+          "name": "chunks_embedding_hnsw_idx",
           "columns": [
             {
               "expression": "embedding",
@@ -172,12 +191,12 @@
         }
       },
       "foreignKeys": {
-        "code_chunks_repository_id_repositories_id_fk": {
-          "name": "code_chunks_repository_id_repositories_id_fk",
-          "tableFrom": "code_chunks",
-          "tableTo": "repositories",
+        "chunks_source_id_sources_id_fk": {
+          "name": "chunks_source_id_sources_id_fk",
+          "tableFrom": "chunks",
+          "tableTo": "sources",
           "columnsFrom": [
-            "repository_id"
+            "source_id"
           ],
           "columnsTo": [
             "id"
@@ -185,17 +204,17 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "code_chunks_file_repository_fkey": {
-          "name": "code_chunks_file_repository_fkey",
-          "tableFrom": "code_chunks",
-          "tableTo": "repository_files",
+        "chunks_file_source_fkey": {
+          "name": "chunks_file_source_fkey",
+          "tableFrom": "chunks",
+          "tableTo": "source_files",
           "columnsFrom": [
             "file_id",
-            "repository_id"
+            "source_id"
           ],
           "columnsTo": [
             "id",
-            "repository_id"
+            "source_id"
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -205,9 +224,17 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
-        "code_chunks_lines_check": {
-          "name": "code_chunks_lines_check",
-          "value": "\"code_chunks\".\"start_line\" >= 1 and \"code_chunks\".\"end_line\" >= \"code_chunks\".\"start_line\""
+        "chunks_lines_check": {
+          "name": "chunks_lines_check",
+          "value": "(\"chunks\".\"start_line\" is null and \"chunks\".\"end_line\" is null) or (\"chunks\".\"start_line\" is not null and \"chunks\".\"end_line\" is not null and \"chunks\".\"start_line\" >= 1 and \"chunks\".\"end_line\" >= \"chunks\".\"start_line\")"
+        },
+        "chunks_content_kind_check": {
+          "name": "chunks_content_kind_check",
+          "value": "\"chunks\".\"content_kind\" in ('code', 'prose', 'table_rows', 'schema_entity', 'image_description')"
+        },
+        "chunks_locator_kind_check": {
+          "name": "chunks_locator_kind_check",
+          "value": "\"chunks\".\"locator\"->>'kind' is not null and \"chunks\".\"locator\"->>'kind' in ('lines', 'section', 'page', 'table_rows', 'schema_entity', 'image')"
         }
       },
       "isRLSEnabled": false
@@ -223,8 +250,8 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "repository_id": {
-          "name": "repository_id",
+        "source_id": {
+          "name": "source_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
@@ -298,11 +325,11 @@
         }
       },
       "indexes": {
-        "index_jobs_repository_idx": {
-          "name": "index_jobs_repository_idx",
+        "index_jobs_source_idx": {
+          "name": "index_jobs_source_idx",
           "columns": [
             {
-              "expression": "repository_id",
+              "expression": "source_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -312,15 +339,31 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "index_jobs_one_active_per_source_key": {
+          "name": "index_jobs_one_active_per_source_key",
+          "columns": [
+            {
+              "expression": "source_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"index_jobs\".\"status\" in ('queued', 'running')",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
-        "index_jobs_repository_id_repositories_id_fk": {
-          "name": "index_jobs_repository_id_repositories_id_fk",
+        "index_jobs_source_id_sources_id_fk": {
+          "name": "index_jobs_source_id_sources_id_fk",
           "tableFrom": "index_jobs",
-          "tableTo": "repositories",
+          "tableTo": "sources",
           "columnsFrom": [
-            "repository_id"
+            "source_id"
           ],
           "columnsTo": [
             "id"
@@ -340,8 +383,99 @@
       },
       "isRLSEnabled": false
     },
-    "public.repositories": {
-      "name": "repositories",
+    "public.project_sources": {
+      "name": "project_sources",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_id": {
+          "name": "source_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "project_sources_source_idx": {
+          "name": "project_sources_source_idx",
+          "columns": [
+            {
+              "expression": "source_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "project_sources_project_id_projects_id_fk": {
+          "name": "project_sources_project_id_projects_id_fk",
+          "tableFrom": "project_sources",
+          "tableTo": "projects",
+          "columnsFrom": [
+            "project_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "project_sources_source_id_sources_id_fk": {
+          "name": "project_sources_source_id_sources_id_fk",
+          "tableFrom": "project_sources",
+          "tableTo": "sources",
+          "columnsFrom": [
+            "source_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "project_sources_project_source_key": {
+          "name": "project_sources_project_source_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "project_id",
+            "source_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.projects": {
+      "name": "projects",
       "schema": "",
       "columns": {
         "id": {
@@ -356,6 +490,189 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.source_files": {
+      "name": "source_files",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "source_id": {
+          "name": "source_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "relative_path": {
+          "name": "relative_path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content_hash": {
+          "name": "content_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "language": {
+          "name": "language",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "size_bytes": {
+          "name": "size_bytes",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status_reason": {
+          "name": "status_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "embedding_model": {
+          "name": "embedding_model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "chunking_version": {
+          "name": "chunking_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_indexed_at": {
+          "name": "last_indexed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "source_files_source_id_sources_id_fk": {
+          "name": "source_files_source_id_sources_id_fk",
+          "tableFrom": "source_files",
+          "tableTo": "sources",
+          "columnsFrom": [
+            "source_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "source_files_source_path_key": {
+          "name": "source_files_source_path_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "source_id",
+            "relative_path"
+          ]
+        },
+        "source_files_id_source_key": {
+          "name": "source_files_id_source_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "source_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "source_files_size_check": {
+          "name": "source_files_size_check",
+          "value": "\"source_files\".\"size_bytes\" >= 0"
+        },
+        "source_files_status_check": {
+          "name": "source_files_status_check",
+          "value": "\"source_files\".\"status\" in ('indexed', 'skipped', 'failed')"
+        },
+        "source_files_content_hash_check": {
+          "name": "source_files_content_hash_check",
+          "value": "\"source_files\".\"status\" = 'skipped' or \"source_files\".\"content_hash\" is not null"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.sources": {
+      "name": "sources",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'code_repository'"
+        },
+        "origin": {
+          "name": "origin",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "canonical_path": {
           "name": "canonical_path",
@@ -402,8 +719,8 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "repositories_canonical_path_unique": {
-          "name": "repositories_canonical_path_unique",
+        "sources_canonical_path_unique": {
+          "name": "sources_canonical_path_unique",
           "nullsNotDistinct": false,
           "columns": [
             "canonical_path"
@@ -412,121 +729,25 @@
       },
       "policies": {},
       "checkConstraints": {
-        "repositories_privacy_mode_check": {
-          "name": "repositories_privacy_mode_check",
-          "value": "\"repositories\".\"privacy_mode\" in ('local')"
+        "sources_kind_check": {
+          "name": "sources_kind_check",
+          "value": "\"sources\".\"kind\" in ('code_repository', 'document_collection')"
         },
-        "repositories_status_check": {
-          "name": "repositories_status_check",
-          "value": "\"repositories\".\"status\" in ('registered', 'indexing', 'ready', 'failed')"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.repository_files": {
-      "name": "repository_files",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
+        "sources_origin_check": {
+          "name": "sources_origin_check",
+          "value": "\"sources\".\"origin\" in ('folder', 'upload')"
         },
-        "repository_id": {
-          "name": "repository_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
+        "sources_document_collection_origin_check": {
+          "name": "sources_document_collection_origin_check",
+          "value": "\"sources\".\"kind\" <> 'document_collection' or \"sources\".\"origin\" is not null"
         },
-        "relative_path": {
-          "name": "relative_path",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
+        "sources_privacy_mode_check": {
+          "name": "sources_privacy_mode_check",
+          "value": "\"sources\".\"privacy_mode\" in ('local')"
         },
-        "content_hash": {
-          "name": "content_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "language": {
-          "name": "language",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "size_bytes": {
-          "name": "size_bytes",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "status_reason": {
-          "name": "status_reason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "last_indexed_at": {
-          "name": "last_indexed_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "repository_files_repository_id_repositories_id_fk": {
-          "name": "repository_files_repository_id_repositories_id_fk",
-          "tableFrom": "repository_files",
-          "tableTo": "repositories",
-          "columnsFrom": [
-            "repository_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "repository_files_repository_path_key": {
-          "name": "repository_files_repository_path_key",
-          "nullsNotDistinct": false,
-          "columns": [
-            "repository_id",
-            "relative_path"
-          ]
-        },
-        "repository_files_id_repository_key": {
-          "name": "repository_files_id_repository_key",
-          "nullsNotDistinct": false,
-          "columns": [
-            "id",
-            "repository_id"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {
-        "repository_files_size_check": {
-          "name": "repository_files_size_check",
-          "value": "\"repository_files\".\"size_bytes\" >= 0"
-        },
-        "repository_files_status_check": {
-          "name": "repository_files_status_check",
-          "value": "\"repository_files\".\"status\" in ('indexed', 'skipped', 'failed')"
+        "sources_status_check": {
+          "name": "sources_status_check",
+          "value": "\"sources\".\"status\" in ('registered', 'indexing', 'ready', 'failed')"
         }
       },
       "isRLSEnabled": false

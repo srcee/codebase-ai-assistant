@@ -17,8 +17,7 @@ export const expectedLocationFactory = Factory.define<ExpectedLocation>(() => ({
 
 export const resultLocationFactory = Factory.define<ResultLocation>(() => ({
   relativePath: `src/${faker.word.noun()}.ts`,
-  startLine: 10,
-  endLine: 20,
+  locator: { kind: 'lines', startLine: 10, endLine: 20 },
 }));
 
 const categorySummaryFactory = Factory.define<CategorySummary>(() => ({

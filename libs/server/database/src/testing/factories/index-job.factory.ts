@@ -9,7 +9,7 @@ import {
 export type IndexJobInsert = typeof indexJobs.$inferInsert;
 export type IndexJobRow = typeof indexJobs.$inferSelect;
 
-/** Pass `repositoryId` when calling `create()`; `build()` uses a random id. */
+/** Pass `sourceId` when calling `create()`; `build()` uses a random id. */
 export const indexJobFactory = Factory.define<
   IndexJobInsert,
   DatabaseTransientParams,
@@ -23,5 +23,5 @@ export const indexJobFactory = Factory.define<
     return row;
   });
 
-  return { repositoryId: faker.string.uuid() };
+  return { sourceId: faker.string.uuid() };
 });

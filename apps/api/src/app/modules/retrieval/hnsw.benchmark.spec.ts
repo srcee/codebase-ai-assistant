@@ -7,14 +7,14 @@ import {
 import {
   describeWithDatabase,
   prepareDedicatedDatabase,
-  repositoryFactory,
-  repositoryFileFactory,
+  sourceFactory,
+  sourceFileFactory,
 } from '@codebase-ai/server-database/testing';
 import { testConfig } from '@codebase-ai/server-testing';
 import { percentile } from '../../../testing/evaluation/metrics';
 import { VectorSearchService } from './services/vector-search.service';
 
-const { codeChunks } = schema;
+const { chunks } = schema;
 
 // Opt-in: builds a large table and several HNSW indexes. HNSW_BENCH_CHUNKS and HNSW_BENCH_QUERIES resize it.
 const enabled = process.env['RUN_HNSW_BENCHMARK'] === 'true';
@@ -96,15 +96,15 @@ if (!enabled) {
           sql`select set_config('enable_sort', 'off', true), set_config('enable_seqscan', 'off', true), set_config('enable_bitmapscan', 'off', true), set_config('hnsw.iterative_scan', 'relaxed_order', true), set_config('hnsw.ef_search', ${String(efSearch)}, true)`,
         );
         const rows = await tx
-          .select({ id: codeChunks.id })
-          .from(codeChunks)
+          .select({ id: chunks.id })
+          .from(chunks)
           .where(
             and(
-              eq(codeChunks.repositoryId, repositoryId),
-              eq(codeChunks.embeddingModel, MODEL),
+              eq(chunks.sourceId, repositoryId),
+              eq(chunks.embeddingModel, MODEL),
             ),
           )
-          .orderBy(cosineDistance(codeChunks.embedding, vector))
+          .orderBy(cosineDistance(chunks.embedding, vector))
           .limit(TOP);
         return rows.map((row) => row.id);
       });
@@ -153,16 +153,13 @@ if (!enabled) {
       database = new DatabaseService(config(100));
       const context = { transient: { db: handle.db } };
 
-      await handle.pool.query('drop index code_chunks_embedding_hnsw_idx');
-      const files: { id: string; repositoryId: string }[] = [];
+      await handle.pool.query('drop index chunks_embedding_hnsw_idx');
+      const files: { id: string; sourceId: string }[] = [];
       for (let index = 0; index < REPOSITORIES; index++) {
-        const repository = await repositoryFactory.create({}, context);
+        const repository = await sourceFactory.create({}, context);
         repositoryIds.push(repository.id);
         files.push(
-          await repositoryFileFactory.create(
-            { repositoryId: repository.id },
-            context,
-          ),
+          await sourceFileFactory.create({ sourceId: repository.id }, context),
         );
       }
 
@@ -176,11 +173,11 @@ if (!enabled) {
           }),
         );
         await handle.pool.query(
-          `insert into code_chunks (repository_id, file_id, chunk_hash, start_line, end_line, content, embedding, embedding_model, chunking_version)
-           select r, f, h, 1, 1, 'x', e::vector, $5, '3'
+          `insert into chunks (source_id, file_id, chunk_hash, content_kind, locator, start_line, end_line, content, embedding, embedding_model, chunking_version)
+           select r, f, h, 'code', '{"kind":"lines","startLine":1,"endLine":1}'::jsonb, 1, 1, 'x', e::vector, $5, '3'
            from unnest($1::uuid[], $2::uuid[], $3::text[], $4::text[]) as t(r, f, h, e)`,
           [
-            batch.map((row) => row.file.repositoryId),
+            batch.map((row) => row.file.sourceId),
             batch.map((row) => row.file.id),
             batch.map((row) => row.hash),
             batch.map((row) => row.embedding),
@@ -188,7 +185,7 @@ if (!enabled) {
           ],
         );
       }
-      await handle.pool.query('analyze code_chunks');
+      await handle.pool.query('analyze chunks');
     });
 
     afterAll(async () => {
@@ -207,7 +204,7 @@ if (!enabled) {
           (
             await service.search({
               vector: query.vector,
-              repositoryIds: [query.repositoryId],
+              sourceIds: [query.repositoryId],
               embeddingModel: MODEL,
             })
           ).map((candidate) => candidate.chunkId);
@@ -225,15 +222,15 @@ if (!enabled) {
       for (const variant of VARIANTS) {
         const built = await timed(() =>
           handle.pool.query(
-            `create index code_chunks_embedding_hnsw_idx on code_chunks using hnsw (embedding vector_cosine_ops) with (m = ${variant.m}, ef_construction = ${variant.efc})`,
+            `create index chunks_embedding_hnsw_idx on chunks using hnsw (embedding vector_cosine_ops) with (m = ${variant.m}, ef_construction = ${variant.efc})`,
           ),
         );
         const { rows } = await handle.pool.query<{ size: string }>(
-          `select pg_size_pretty(pg_relation_size('code_chunks_embedding_hnsw_idx')) as size`,
+          `select pg_size_pretty(pg_relation_size('chunks_embedding_hnsw_idx')) as size`,
         );
-        await handle.pool.query('analyze code_chunks');
+        await handle.pool.query('analyze chunks');
         const plan = await handle.pool.query(
-          `explain select id from code_chunks where repository_id = $1 and embedding_model = $2 order by embedding <=> $3::vector limit ${TOP}`,
+          `explain select id from chunks where source_id = $1 and embedding_model = $2 order by embedding <=> $3::vector limit ${TOP}`,
           [repositoryIds[0], MODEL, JSON.stringify(queries[0].vector)],
         );
         const usesIndex = plan.rows.some((row) =>
@@ -254,7 +251,7 @@ if (!enabled) {
             `  ef_search ${efSearch}: HNSW forced ${summary(forced.times, forced.ids, truth)}`,
           );
         }
-        await handle.pool.query('drop index code_chunks_embedding_hnsw_idx');
+        await handle.pool.query('drop index chunks_embedding_hnsw_idx');
       }
 
       console.info(lines.join('\n'));

@@ -1,5 +1,7 @@
 export { EMBEDDING_DIMENSIONS } from './shared/columns';
-export { codeChunks } from './code-chunks/table';
+export { chunks } from './chunks/table';
 export { indexJobs } from './index-jobs/table';
-export { repositories } from './repositories/table';
-export { repositoryFiles } from './repository-files/table';
+export { projects } from './projects/table';
+export { projectSources } from './project-sources/table';
+export { sources } from './sources/table';
+export { sourceFiles } from './source-files/table';

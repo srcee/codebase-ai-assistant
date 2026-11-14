@@ -6,7 +6,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import type {
   CreateCodebaseRequest,
   CodebaseResponse,
@@ -17,7 +17,10 @@ import { toCodebaseResponse } from '../mappers/to-codebase-response';
 import { relativeToAnyRoot } from '../utils/relative-within';
 import { PathPolicyService } from './path-policy.service';
 
-const { repositories } = schema;
+const { sources } = schema;
+
+const isCodebase = eq(sources.kind, 'code_repository');
+const codebaseWithId = (id: string) => and(eq(sources.id, id), isCodebase);
 
 @Injectable()
 export class CodebasesService {
@@ -39,12 +42,13 @@ export class CodebasesService {
       });
 
     const [row] = await this.database.db
-      .insert(repositories)
+      .insert(sources)
       .values({
         name: request.name ?? (basename(resolved.canonicalPath) || 'codebase'),
+        kind: 'code_repository',
         canonicalPath: resolved.canonicalPath,
       })
-      .onConflictDoNothing({ target: repositories.canonicalPath })
+      .onConflictDoNothing({ target: sources.canonicalPath })
       .returning();
     if (!row) throw new ConflictException('Codebase is already registered.');
     this.logger.log(`Codebase registered id=${row.id}`);
@@ -55,8 +59,9 @@ export class CodebasesService {
     const [rows, roots] = await Promise.all([
       this.database.db
         .select()
-        .from(repositories)
-        .orderBy(asc(repositories.name), asc(repositories.createdAt)),
+        .from(sources)
+        .where(isCodebase)
+        .orderBy(asc(sources.name), asc(sources.createdAt)),
       this.pathPolicy.canonicalRoots(),
     ]);
     return rows.map((row) =>
@@ -67,19 +72,19 @@ export class CodebasesService {
   async get(id: string): Promise<CodebaseResponse> {
     const [row] = await this.database.db
       .select()
-      .from(repositories)
-      .where(eq(repositories.id, id));
+      .from(sources)
+      .where(codebaseWithId(id));
     if (!row) throw new NotFoundException('Codebase not found.');
     const roots = await this.pathPolicy.canonicalRoots();
     return toCodebaseResponse(row, relativeToAnyRoot(roots, row.canonicalPath));
   }
 
-  /** Foreign keys cascade the delete to files, chunks, and jobs. */
+  /** Foreign keys cascade the delete to files, chunks, jobs, and project links. */
   async remove(id: string): Promise<void> {
     const deleted = await this.database.db
-      .delete(repositories)
-      .where(eq(repositories.id, id))
-      .returning({ id: repositories.id });
+      .delete(sources)
+      .where(codebaseWithId(id))
+      .returning({ id: sources.id });
     if (deleted.length === 0)
       throw new NotFoundException('Codebase not found.');
     this.logger.log(`Codebase deleted id=${id}`);

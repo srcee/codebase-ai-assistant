@@ -1,0 +1,21 @@
+meta {
+  name: Update project
+  type: http
+  seq: 4
+}
+
+patch {
+  url: {{baseUrl}}/projects/{{projectId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "description": null
+  }
+}
+
+assert {
+  res.status: eq 200
+}

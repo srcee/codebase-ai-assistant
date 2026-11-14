@@ -16,11 +16,12 @@ const expected = expectedLocationFactory.build({
   startLine: 20,
   endLine: 30,
 });
-const hit = resultLocationFactory.build({
-  relativePath: 'src/a.ts',
-  startLine: 25,
-  endLine: 40,
-});
+const linesAt = (relativePath: string, startLine: number, endLine: number) =>
+  resultLocationFactory.build({
+    relativePath,
+    locator: { kind: 'lines', startLine, endLine },
+  });
+const hit = linesAt('src/a.ts', 25, 40);
 const miss = () => resultLocationFactory.build();
 
 describe('isHit', () => {
@@ -30,38 +31,34 @@ describe('isHit', () => {
     ['overlapping the end', 30, 45],
     ['covering the range', 1, 100],
   ])('hits a result %s the expected range', (_label, startLine, endLine) => {
-    expect(
-      isHit(
-        resultLocationFactory.build({
-          relativePath: 'src/a.ts',
-          startLine,
-          endLine,
-        }),
-        expected,
-      ),
-    ).toBe(true);
+    expect(isHit(linesAt('src/a.ts', startLine, endLine), expected)).toBe(true);
   });
 
   it.each([
     ['before', 1, 19],
     ['after', 31, 50],
   ])('misses a result %s the expected range', (_label, startLine, endLine) => {
-    expect(
-      isHit(
-        resultLocationFactory.build({
-          relativePath: 'src/a.ts',
-          startLine,
-          endLine,
-        }),
-        expected,
-      ),
-    ).toBe(false);
+    expect(isHit(linesAt('src/a.ts', startLine, endLine), expected)).toBe(
+      false,
+    );
   });
 
   it('misses the same lines in another file', () => {
     expect(isHit({ ...hit, relativePath: 'src/other.ts' }, expected)).toBe(
       false,
     );
+  });
+
+  it('misses a result in the same file without a line locator', () => {
+    expect(
+      isHit(
+        resultLocationFactory.build({
+          relativePath: 'src/a.ts',
+          locator: { kind: 'page', page: 1 },
+        }),
+        expected,
+      ),
+    ).toBe(false);
   });
 });
 
@@ -71,11 +68,7 @@ describe('recallAtK', () => {
     startLine: 1,
     endLine: 5,
   });
-  const secondHit = resultLocationFactory.build({
-    relativePath: 'src/b.ts',
-    startLine: 1,
-    endLine: 9,
-  });
+  const secondHit = linesAt('src/b.ts', 1, 9);
 
   it('is the fraction of expected locations found', () => {
     expect(recallAtK([hit, miss()], [expected, second], 10)).toBe(0.5);

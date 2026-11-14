@@ -3,10 +3,11 @@ import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { APP_CONFIG, type AppConfig } from '@codebase-ai/server-config';
 import { DatabaseService, schema } from '@codebase-ai/server-database';
 import type { SearchCandidate } from '../types/search-candidate';
+import { toSearchCandidate } from '../mappers/search-candidate.mapper';
 import { buildLexicalQuery } from '../utils/build-lexical-query';
 import { candidateColumns } from '../utils/candidate-columns';
 
-const { codeChunks, repositories, repositoryFiles } = schema;
+const { chunks, sources, sourceFiles } = schema;
 
 @Injectable()
 export class LexicalSearchService {
@@ -17,33 +18,34 @@ export class LexicalSearchService {
 
   async search(
     text: string,
-    repositoryIds: readonly string[],
+    sourceIds: readonly string[],
   ): Promise<SearchCandidate[]> {
     const query = buildLexicalQuery(text);
-    if (!query || repositoryIds.length === 0) return [];
+    if (!query || sourceIds.length === 0) return [];
 
     const tsquery = sql`to_tsquery('simple', ${query.tsquery})`;
-    const phraseBonus = sql`case when ${codeChunks.searchVector} @@ phraseto_tsquery('simple', ${query.phrase}) then 1 else 0 end`;
-    const rank = sql`ts_rank_cd(${codeChunks.searchVector}, ${tsquery}, 1) + ${phraseBonus}`;
+    const phraseBonus = sql`case when ${chunks.searchVector} @@ phraseto_tsquery('simple', ${query.phrase}) then 1 else 0 end`;
+    const rank = sql`ts_rank_cd(${chunks.searchVector}, ${tsquery}, 1) + ${phraseBonus}`;
 
-    return this.database.db
+    const rows = await this.database.db
       .select(candidateColumns)
-      .from(codeChunks)
+      .from(chunks)
       .innerJoin(
-        repositoryFiles,
+        sourceFiles,
         and(
-          eq(repositoryFiles.id, codeChunks.fileId),
-          eq(repositoryFiles.repositoryId, codeChunks.repositoryId),
+          eq(sourceFiles.id, chunks.fileId),
+          eq(sourceFiles.sourceId, chunks.sourceId),
         ),
       )
-      .innerJoin(repositories, eq(repositories.id, codeChunks.repositoryId))
+      .innerJoin(sources, eq(sources.id, chunks.sourceId))
       .where(
         and(
-          inArray(codeChunks.repositoryId, [...repositoryIds]),
-          sql`${codeChunks.searchVector} @@ ${tsquery}`,
+          inArray(chunks.sourceId, [...sourceIds]),
+          sql`${chunks.searchVector} @@ ${tsquery}`,
         ),
       )
-      .orderBy(desc(rank), asc(codeChunks.id))
+      .orderBy(desc(rank), asc(chunks.id))
       .limit(this.config.retrieval.candidateLimit);
+    return rows.map(toSearchCandidate);
   }
 }

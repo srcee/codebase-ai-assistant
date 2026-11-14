@@ -8,9 +8,9 @@ Stage 6 stores what ingestion produces and keeps it current. There is no queue o
 
 ## Decision
 
-- **Jobs run in the API process.** `POST /codebases/:id/index` inserts an `index_jobs` row and returns `202`; `IndexJobRunnerService` runs the job in the background. A partial unique index on `index_jobs(repository_id) where status in ('queued', 'running')` allows one active job per repository, so a second request gets `409` without an in-memory lock.
-- **Per-file state lives in `repository_files`.** Indexed, failed, and skipped files all have a row. Skipped rows carry the skip reason and no content hash or size (`content_hash` is nullable only when `status = 'skipped'`). The latest job reports counters; per-file reasons come from these rows. Excluded directories are not walked and have no row.
-- **Unchanged detection.** `repository_files` stores `embedding_model` and `chunking_version` next to `content_hash`. A file is unchanged only if all three match, so changing `INFERENCE_RUNTIME`, `EMBEDDING_MODEL`, or `CHUNKING_VERSION` re-indexes everything.
+- **Jobs run in the API process.** `POST /codebases/:id/index` inserts an `index_jobs` row and returns `202`; `IndexJobRunnerService` runs the job in the background. A partial unique index on `index_jobs(source_id) where status in ('queued', 'running')` allows one active job per source, so a second request gets `409` without an in-memory lock.
+- **Per-file state lives in `source_files`.** Indexed, failed, and skipped files all have a row. Skipped rows carry the skip reason and no content hash or size (`content_hash` is nullable only when `status = 'skipped'`). The latest job reports counters; per-file reasons come from these rows. Excluded directories are not walked and have no row.
+- **Unchanged detection.** `source_files` stores `embedding_model` and `chunking_version` next to `content_hash`. A file is unchanged only if all three match, so changing `INFERENCE_RUNTIME`, `EMBEDDING_MODEL`, or `CHUNKING_VERSION` re-indexes everything.
 - **Embedding identity** is `<runtime>/<model>` from `EmbeddingsService.identity`, stored on files and chunks.
 - **Embedding reuse.** Before embedding a changed file, vectors are looked up by `chunk_hash`, identity, and chunking version within the same repository only. Only missing hashes are embedded. Stale rows are deleted after the walk, so a renamed file finds its old vectors.
 - **One transaction per file.** The file row is upserted and its chunks replaced together. Chunk ids change when a file changes.

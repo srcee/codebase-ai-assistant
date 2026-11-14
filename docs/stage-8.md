@@ -2,7 +2,7 @@
 
 **Goal:** Generalize the data model and retrieval from code repositories to knowledge sources grouped by projects, so documentation can be indexed next to code and chat citations work for both.
 
-**Status:** Not started
+**Status:** In progress (eval comparison with the Stage 7 report pending)
 
 **Prerequisites:** Stage 7.
 
@@ -10,12 +10,12 @@
 
 ## Tasks
 
-1. Schema and migration (one migration, data kept):
+1. Schema and migration (the old migrations are replaced by a new baseline, see decision 0009; local databases need `npm run db:reset`):
    - Rename `repositories` to `sources`; add `kind` (`code_repository`, `document_collection`) and nullable `origin` (`folder`, `upload`, required for document collections), both with CHECK constraints. Existing rows become `code_repository`.
    - Rename `repository_files` to `source_files` and `code_chunks` to `chunks`; rename `repository_id` columns to `source_id`.
-   - In `chunks`: `start_line` and `end_line` nullable, `symbol_name` renamed to `title`, add `content_kind` (CHECK) and `locator jsonb not null` (CHECK on `locator->>'kind'`). Backfill existing rows with `content_kind = 'code'` and a `lines` locator.
+   - In `chunks`: `start_line` and `end_line` nullable, `symbol_name` renamed to `title`, add `content_kind` (CHECK) and `locator jsonb not null` (CHECK on `locator->>'kind'`).
    - Add `projects` and `project_sources` (unique pair, cascade on both sides, deleting a project keeps its sources).
-   - Review the generated SQL: recreate `search_vector` from `title`, recreate its GIN index, and keep the HNSW index.
+   - Review the generated SQL: `search_vector` from `title`, its GIN index, and the HNSW index.
 2. Locator types and zod schemas in the API (`types/`, `utils/`), shared display shape in `libs/shared/contracts`.
 3. Update ingestion and indexing to write `title`, `content_kind`, and `locator` for code. Code chunking output and `CHUNKING_VERSION` stay the same.
 4. Retrieval:
@@ -29,7 +29,7 @@
 
 ## Tests
 
-- Migration on a database with indexed code: chunk count, embeddings, and lexical and vector results unchanged.
+- Migrations apply on an empty database; lexical and vector search work on the new schema.
 - Locator CHECK rejects unknown kinds; zod rejects malformed locators.
 - Scope isolation: a project with source A never returns chunks of source B, including when B shares a project with A elsewhere.
 - Project resolution: empty project returns nothing; deleting a project keeps sources and chunks; deleting a source removes it from projects.

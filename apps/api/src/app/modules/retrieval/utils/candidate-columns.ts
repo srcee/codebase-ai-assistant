@@ -1,14 +1,15 @@
 import { schema } from '@codebase-ai/server-database';
 
-const { codeChunks, repositories, repositoryFiles } = schema;
+const { chunks, sources, sourceFiles } = schema;
 
 export const candidateColumns = {
-  chunkId: codeChunks.id,
-  repositoryId: codeChunks.repositoryId,
-  repositoryName: repositories.name,
-  relativePath: repositoryFiles.relativePath,
-  startLine: codeChunks.startLine,
-  endLine: codeChunks.endLine,
-  symbolName: codeChunks.symbolName,
-  content: codeChunks.content,
+  chunkId: chunks.id,
+  sourceId: chunks.sourceId,
+  sourceName: sources.name,
+  sourceKind: sources.kind,
+  relativePath: sourceFiles.relativePath,
+  title: chunks.title,
+  contentKind: chunks.contentKind,
+  locator: chunks.locator,
+  content: chunks.content,
 };

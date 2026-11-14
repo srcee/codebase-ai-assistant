@@ -1,0 +1,19 @@
+meta {
+  name: List projects
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/projects
+  body: none
+  auth: inherit
+}
+
+vars:post-response {
+  projectId: res.body[0]?.id
+}
+
+assert {
+  res.status: eq 200
+}

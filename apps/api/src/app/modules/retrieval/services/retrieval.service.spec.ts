@@ -44,12 +44,10 @@ describe('RetrievalService', () => {
   afterEach(() => jest.restoreAllMocks());
 
   it.each([
-    ['no repositories', 'a query', []],
+    ['no sources', 'a query', []],
     ['a blank query', '   ', [faker.string.uuid()]],
-  ])('does no work for %s', async (_label, query, repositoryIds) => {
-    await expect(service().search({ query, repositoryIds })).resolves.toEqual(
-      [],
-    );
+  ])('does no work for %s', async (_label, query, sourceIds) => {
+    await expect(service().search({ query, sourceIds })).resolves.toEqual([]);
     expect(embeddings.embedQuery).not.toHaveBeenCalled();
     expect(vectorSearch.search).not.toHaveBeenCalled();
     expect(lexicalSearch.search).not.toHaveBeenCalled();
@@ -58,12 +56,12 @@ describe('RetrievalService', () => {
   it('searches the unique ids with the embedded query and the embedding identity', async () => {
     const id = faker.string.uuid();
 
-    await service().search({ query: '  find it  ', repositoryIds: [id, id] });
+    await service().search({ query: '  find it  ', sourceIds: [id, id] });
 
     expect(embeddings.embedQuery).toHaveBeenCalledWith('find it', {});
     expect(vectorSearch.search).toHaveBeenCalledWith({
       vector,
-      repositoryIds: [id],
+      sourceIds: [id],
       embeddingModel: identity,
     });
     expect(lexicalSearch.search).toHaveBeenCalledWith('find it', [id]);
@@ -76,7 +74,7 @@ describe('RetrievalService', () => {
 
     const results = await service().search({
       query: 'q',
-      repositoryIds: [faker.string.uuid()],
+      sourceIds: [faker.string.uuid()],
     });
 
     expect(results).toHaveLength(2);
@@ -92,7 +90,7 @@ describe('RetrievalService', () => {
     );
 
     await expect(
-      service().search({ query: 'q', repositoryIds: [faker.string.uuid()] }),
+      service().search({ query: 'q', sourceIds: [faker.string.uuid()] }),
     ).rejects.toBeInstanceOf(InferenceUnavailableError);
     expect(vectorSearch.search).not.toHaveBeenCalled();
     expect(lexicalSearch.search).not.toHaveBeenCalled();
@@ -105,12 +103,12 @@ describe('RetrievalService', () => {
 
     await service().search({
       query: `password = "${CANARY_SECRET}"`,
-      repositoryIds: [faker.string.uuid()],
+      sourceIds: [faker.string.uuid()],
     });
 
     expect(log).toHaveBeenCalledTimes(1);
     expect(String(log.mock.calls[0][0])).toMatch(
-      /repositories=1 vector=1 lexical=0 results=1 \d+ms/,
+      /sources=1 vector=1 lexical=0 results=1 \d+ms/,
     );
     assertNotLeaked(log.mock.calls, CANARY_SECRET);
     assertNotLeaked(log.mock.calls, candidate.content);

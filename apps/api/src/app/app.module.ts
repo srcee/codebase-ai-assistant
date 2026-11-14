@@ -22,6 +22,7 @@ import { GenerationModule } from './modules/generation/generation.module';
 import { IndexingModule } from './modules/indexing/indexing.module';
 import { IngestionModule } from './modules/ingestion/ingestion.module';
 import { PrivacyModule } from './modules/privacy/privacy.module';
+import { ProjectsModule } from './modules/projects/projects.module';
 import { RetrievalModule } from './modules/retrieval/retrieval.module';
 
 @Global()
@@ -36,6 +37,7 @@ import { RetrievalModule } from './modules/retrieval/retrieval.module';
     CodebasesModule,
     IngestionModule,
     IndexingModule,
+    ProjectsModule,
     RetrievalModule,
   ],
   providers: [

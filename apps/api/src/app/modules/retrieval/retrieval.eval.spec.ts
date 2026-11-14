@@ -112,7 +112,7 @@ if (!enabled) {
       const vectorSearch = app.get(VectorSearchService, { strict: false });
       const lexicalSearch = app.get(LexicalSearchService, { strict: false });
       const retrieval = app.get(RetrievalService, { strict: false });
-      const repositoryIds = [codebaseId];
+      const sourceIds = [codebaseId];
 
       const searchers: Record<
         SearchMode,
@@ -121,12 +121,11 @@ if (!enabled) {
         vector: async (question) =>
           vectorSearch.search({
             vector: await embeddings.embedQuery(question),
-            repositoryIds,
+            sourceIds,
             embeddingModel: embeddings.identity,
           }),
-        lexical: (question) => lexicalSearch.search(question, repositoryIds),
-        hybrid: (question) =>
-          retrieval.search({ query: question, repositoryIds }),
+        lexical: (question) => lexicalSearch.search(question, sourceIds),
+        hybrid: (question) => retrieval.search({ query: question, sourceIds }),
       };
 
       // The first call loads the embedding model and would skew the latency of whichever mode runs first.

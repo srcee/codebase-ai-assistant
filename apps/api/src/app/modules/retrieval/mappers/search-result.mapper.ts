@@ -4,12 +4,13 @@ import type { RetrievedChunk } from '../types/retrieved-chunk';
 export function toSearchResult(chunk: RetrievedChunk): SearchResult {
   return {
     chunkId: chunk.chunkId,
-    repositoryId: chunk.repositoryId,
-    repositoryName: chunk.repositoryName,
+    sourceId: chunk.sourceId,
+    sourceName: chunk.sourceName,
+    sourceKind: chunk.sourceKind,
     relativePath: chunk.relativePath,
-    startLine: chunk.startLine,
-    endLine: chunk.endLine,
-    symbolName: chunk.symbolName,
+    title: chunk.title,
+    contentKind: chunk.contentKind,
+    locator: chunk.locator,
     content: chunk.content,
     score: chunk.score,
     sources: chunk.sources,

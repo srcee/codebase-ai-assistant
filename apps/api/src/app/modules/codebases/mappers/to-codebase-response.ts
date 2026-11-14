@@ -1,7 +1,7 @@
 import type { CodebaseResponse, CodebaseStatus } from '@codebase-ai/contracts';
 import type { schema } from '@codebase-ai/server-database';
 
-type CodebaseRow = typeof schema.repositories.$inferSelect;
+type CodebaseRow = typeof schema.sources.$inferSelect;
 
 /** Deliberately omits the canonical absolute path. */
 export function toCodebaseResponse(

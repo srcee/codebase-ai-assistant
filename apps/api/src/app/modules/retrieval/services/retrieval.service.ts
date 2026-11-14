@@ -10,8 +10,8 @@ import { VectorSearchService } from './vector-search.service';
 
 export interface RetrievalRequest {
   query: string;
-  /** Only these repositories are searched; empty or unknown ids yield no results. */
-  repositoryIds: readonly string[];
+  /** Only these sources are searched; empty or unknown ids yield no results. */
+  sourceIds: readonly string[];
 }
 
 @Injectable()
@@ -29,19 +29,19 @@ export class RetrievalService {
     request: RetrievalRequest,
     options: InferenceRequestOptions = {},
   ): Promise<RetrievedChunk[]> {
-    const repositoryIds = [...new Set(request.repositoryIds)];
+    const sourceIds = [...new Set(request.sourceIds)];
     const query = request.query.trim();
-    if (repositoryIds.length === 0 || query === '') return [];
+    if (sourceIds.length === 0 || query === '') return [];
 
     const started = process.hrtime.bigint();
     const vector = await this.embeddings.embedQuery(query, options);
     const [vectorResults, lexicalResults] = await Promise.all([
       this.vectorSearch.search({
         vector,
-        repositoryIds,
+        sourceIds,
         embeddingModel: this.embeddings.identity,
       }),
-      this.lexicalSearch.search(query, repositoryIds),
+      this.lexicalSearch.search(query, sourceIds),
     ]);
 
     const { rrfK, maxChunks, maxContextChars } = this.config.retrieval;
@@ -55,7 +55,7 @@ export class RetrievalService {
     );
     // Counts and timing only: the query text can hold pasted source code.
     this.logger.log(
-      `search repositories=${repositoryIds.length} vector=${vectorResults.length} lexical=${lexicalResults.length} results=${results.length} ${durationMs}ms`,
+      `search sources=${sourceIds.length} vector=${vectorResults.length} lexical=${lexicalResults.length} results=${results.length} ${durationMs}ms`,
     );
     return results;
   }

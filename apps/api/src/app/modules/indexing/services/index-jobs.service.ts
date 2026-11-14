@@ -16,7 +16,10 @@ import { DatabaseService, schema } from '@codebase-ai/server-database';
 import { toIndexJobResponse } from '../mappers/to-index-job-response';
 import type { IndexJobCounters } from '../types/index-job-counters';
 
-const { indexJobs, repositories, repositoryFiles } = schema;
+const { indexJobs, sources, sourceFiles } = schema;
+
+const codebaseWithId = (id: string) =>
+  and(eq(sources.id, id), eq(sources.kind, 'code_repository'));
 
 type IndexJobRow = typeof indexJobs.$inferSelect;
 
@@ -62,9 +65,9 @@ export class IndexJobsService implements OnApplicationBootstrap {
         .where(inArray(indexJobs.status, ACTIVE_STATUSES))
         .returning({ id: indexJobs.id });
       await tx
-        .update(repositories)
+        .update(sources)
         .set({ status: 'failed' })
-        .where(eq(repositories.status, 'indexing'));
+        .where(eq(sources.status, 'indexing'));
       if (failed.length > 0) {
         this.logger.warn(
           `Marked ${failed.length} interrupted index jobs failed`,
@@ -76,15 +79,15 @@ export class IndexJobsService implements OnApplicationBootstrap {
   async create(repositoryId: string): Promise<CreatedIndexJob> {
     return this.database.db.transaction(async (tx) => {
       const [repository] = await tx
-        .select({ canonicalPath: repositories.canonicalPath })
-        .from(repositories)
-        .where(eq(repositories.id, repositoryId));
+        .select({ canonicalPath: sources.canonicalPath })
+        .from(sources)
+        .where(codebaseWithId(repositoryId));
       if (!repository) throw new NotFoundException('Codebase not found.');
 
-      // The partial unique index allows one queued or running job per repository.
+      // The partial unique index allows one queued or running job per source.
       const [job] = await tx
         .insert(indexJobs)
-        .values({ repositoryId })
+        .values({ sourceId: repositoryId })
         .onConflictDoNothing()
         .returning();
       if (!job) {
@@ -93,9 +96,9 @@ export class IndexJobsService implements OnApplicationBootstrap {
         );
       }
       await tx
-        .update(repositories)
+        .update(sources)
         .set({ status: 'indexing' })
-        .where(eq(repositories.id, repositoryId));
+        .where(eq(sources.id, repositoryId));
       return { job, canonicalPath: repository.canonicalPath };
     });
   }
@@ -138,17 +141,17 @@ export class IndexJobsService implements OnApplicationBootstrap {
         })
         .where(eq(indexJobs.id, jobId));
       await tx
-        .update(repositories)
+        .update(sources)
         .set({ status: outcome.status === 'succeeded' ? 'ready' : 'failed' })
-        .where(eq(repositories.id, repositoryId));
+        .where(eq(sources.id, repositoryId));
     });
   }
 
   async repositoryExists(repositoryId: string): Promise<boolean> {
     const [row] = await this.database.db
-      .select({ id: repositories.id })
-      .from(repositories)
-      .where(eq(repositories.id, repositoryId));
+      .select({ id: sources.id })
+      .from(sources)
+      .where(codebaseWithId(repositoryId));
     return Boolean(row);
   }
 
@@ -157,25 +160,25 @@ export class IndexJobsService implements OnApplicationBootstrap {
     const [job] = await db
       .select()
       .from(indexJobs)
-      .where(eq(indexJobs.repositoryId, repositoryId))
+      .where(eq(indexJobs.sourceId, repositoryId))
       .orderBy(desc(indexJobs.createdAt))
       .limit(1);
     if (!job) throw new NotFoundException('No index job for this codebase.');
 
     const issues = await db
       .select({
-        relativePath: repositoryFiles.relativePath,
-        status: repositoryFiles.status,
-        reason: repositoryFiles.statusReason,
+        relativePath: sourceFiles.relativePath,
+        status: sourceFiles.status,
+        reason: sourceFiles.statusReason,
       })
-      .from(repositoryFiles)
+      .from(sourceFiles)
       .where(
         and(
-          eq(repositoryFiles.repositoryId, repositoryId),
-          inArray(repositoryFiles.status, ['skipped', 'failed']),
+          eq(sourceFiles.sourceId, repositoryId),
+          inArray(sourceFiles.status, ['skipped', 'failed']),
         ),
       )
-      .orderBy(asc(repositoryFiles.relativePath))
+      .orderBy(asc(sourceFiles.relativePath))
       .limit(MAX_ISSUES);
     return {
       job: toIndexJobResponse(job),

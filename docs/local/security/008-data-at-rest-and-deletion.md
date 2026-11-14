@@ -18,7 +18,7 @@
 
 ## Tests
 
-- Repository deletion leaves no rows in `repository_files`, `code_chunks`, `index_jobs` (already covered; keep).
+- Repository deletion leaves no rows in `source_files`, `chunks`, `index_jobs`, `project_sources` (already covered; keep).
 
 ## Related
 
