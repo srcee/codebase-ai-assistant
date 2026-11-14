@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "corpus": "libs/server/testing/eval/corpus",
+  "answerableQuestionSet": "questions.v1.json",
+  "unanswerable": [
+    {
+      "id": "unanswerable-01",
+      "question": "How is the Kubernetes deployment configured?"
+    },
+    {
+      "id": "unanswerable-02",
+      "question": "Which GraphQL resolvers handle product search?"
+    },
+    {
+      "id": "unanswerable-03",
+      "question": "How does the mobile app sync offline orders?"
+    },
+    {
+      "id": "unanswerable-04",
+      "question": "Which machine learning model recommends products to customers?"
+    },
+    {
+      "id": "unanswerable-05",
+      "question": "How are push notifications sent to iOS devices?"
+    },
+    {
+      "id": "unanswerable-06",
+      "question": "Which Terraform module provisions the production database?"
+    },
+    {
+      "id": "unanswerable-07",
+      "question": "How are loyalty points earned and redeemed?"
+    },
+    {
+      "id": "unanswerable-08",
+      "question": "What is the capital of France?"
+    },
+    {
+      "id": "unanswerable-09",
+      "question": "How is the websocket chat between support agents and customers implemented?"
+    },
+    {
+      "id": "unanswerable-10",
+      "question": "Which A/B testing service assigns users to experiments?"
+    }
+  ]
+}

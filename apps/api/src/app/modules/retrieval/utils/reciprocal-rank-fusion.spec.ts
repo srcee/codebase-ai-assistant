@@ -1,3 +1,4 @@
+import { faker } from '@codebase-ai/shared-testing';
 import { searchCandidateFactory } from '../../../../testing/factories/search-candidate.factory';
 import { reciprocalRankFusion } from './reciprocal-rank-fusion';
 
@@ -54,6 +55,17 @@ describe('reciprocalRankFusion', () => {
 
   it('returns nothing for empty inputs', () => {
     expect(reciprocalRankFusion([], [], K)).toEqual([]);
+  });
+
+  it('keeps the vector similarity when lexical search also finds the chunk', () => {
+    const vectorHit = searchCandidateFactory.build({
+      vectorSimilarity: faker.number.float({ min: 0, max: 1 }),
+    });
+    const lexicalHit = { ...vectorHit, vectorSimilarity: undefined };
+
+    const [fused] = reciprocalRankFusion([vectorHit], [lexicalHit], K);
+
+    expect(fused.vectorSimilarity).toBe(vectorHit.vectorSimilarity);
   });
 
   it('keeps the candidate fields', () => {

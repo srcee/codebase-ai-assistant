@@ -1,0 +1,15 @@
+meta {
+  name: Delete conversation
+  type: http
+  seq: 3
+}
+
+delete {
+  url: {{baseUrl}}/conversations/{{conversationId}}
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 204
+}

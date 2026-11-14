@@ -19,6 +19,6 @@ import { VectorSearchService } from './services/vector-search.service';
     RetrievalService,
     SearchScopeService,
   ],
-  exports: [RetrievalService],
+  exports: [RetrievalService, SearchScopeService],
 })
 export class RetrievalModule {}

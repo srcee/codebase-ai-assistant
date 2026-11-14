@@ -188,6 +188,35 @@ npx nx run api:test --skip-nx-cache --testPathPatterns=retrieval.eval
 
 It needs the embedding runtime running with `EMBEDDING_MODEL` pulled and `TEST_DATABASE_URL` set, and it is skipped otherwise. The corpus is small, so absolute scores are optimistic; compare runs with each other, not with a target.
 
+### Chat
+
+The `chat` module answers a question from retrieved evidence through `GenerationService` and the chat port, cites it, and stores the conversation locally. See [decision 0013](docs/decisions/0013-chat-and-grounded-generation.md).
+
+| Endpoint                    | Body or query                                           | Success                                                                  |
+| --------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `POST /chat`                | `{ question, sourceIds \| projectId, conversationId? }` | `200` `text/event-stream`: `meta`, `token`..., then `done` or `error`    |
+| `GET /conversations`        | `?limit=1..100&cursor=`                                 | `200` `{ items, nextCursor }`, most recently updated first               |
+| `GET /conversations/:id`    | `?limit=1..100&cursor=`                                 | `200` with the conversation and a page of messages (oldest first, cited) |
+| `DELETE /conversations/:id` |                                                         | `204`; messages and citations are deleted with it                        |
+
+- The `done` event holds the final `answer` (invalid citation markers removed), `status` (`complete` or `abstained`), `citations` (`ordinal`, source, path, content kind, locator), `invalidCitations`, and `suggestions` for an abstention. A citation is valid only if its number points at retrieved evidence whose chunk still exists in scope with the same path and locator.
+- Retrieved text goes into the prompt as untrusted, delimited evidence, never in the system message. The model, runtime, and provider come from configuration only; a request that names one gets `400`.
+- Without evidence, or when no chunk matched lexically and the best vector similarity is below `CHAT_MIN_VECTOR_SIMILARITY`, the API abstains without calling the model.
+- Up to `CHAT_HISTORY_TURNS` earlier turns of the conversation (at most `CHAT_HISTORY_MAX_CHARS`) are sent as history.
+- A finished exchange is stored in one transaction; a stopped or failed answer stores nothing. Conversations are kept until deleted unless `CHAT_RETENTION_DAYS` is set, which purges conversations not updated for that long at startup and daily. Citations keep their path and locator after re-indexing removes the chunk (`chunkId` becomes `null`).
+- Failure modes, before the stream starts: `400` invalid body, both or neither scope, a question over `CHAT_MAX_QUESTION_CHARS`, or a bad cursor; `404` unknown project or conversation; `429` while `CHAT_MAX_CONCURRENT` answers are generating; `503` inference unavailable, model missing, `CHAT_GENERATION_TIMEOUT_MS` exceeded, or no `DATABASE_URL`. After it starts, failures arrive as an `error` event with a fixed message. Closing the connection stops generation.
+- Logs carry the conversation id, counts, citation counts, and timings only.
+
+The web app (`npm run start:web`, then open http://localhost:4200) has a minimal chat: pick a project or repository, ask, stop an answer, and open or delete earlier conversations. Stage 17 builds the full UI.
+
+`chat.eval.spec.ts` indexes the evaluation corpus, asks every question of `questions.v1.json` plus the unanswerable questions of `chat-questions.v1.json` through `POST /chat` with the real local models, and writes `reports/chat-<label>.json` and `.md`: citation validity, answers that cite an expected location (a groundedness proxy), abstention on unanswerable and answerable questions, latency, and a table for a manual groundedness review. Use it to tune `CHAT_MIN_VECTOR_SIMILARITY`.
+
+```powershell
+npm run db:test:up
+$env:RUN_CHAT_EVAL = 'true'; $env:EVAL_LABEL = 'stage9'
+npx nx run api:test --skip-nx-cache --testPathPatterns=chat.eval
+```
+
 ### Local inference
 
 Embeddings and chat run in a local runtime, [Ollama](https://ollama.com) by default. Install it, then pull the default models:
@@ -212,7 +241,7 @@ PrivacyModule: EgressHttpClient (loopback only) ──► local runtime
 ```
 
 - `EmbeddingsService.embedDocuments(texts)` and `embedQuery(text)` (module `embeddings`) add the configured document or query prefix, batch, retry transient failures, and check vector sizes against `EMBEDDING_DIMENSIONS`. The Ollama adapter rejects input that exceeds the model context instead of truncating it.
-- `GenerationService.complete(messages)` and `.stream(messages)` (module `generation`) never retry and never fall back to another runtime.
+- `GenerationService.complete(messages)` and `.stream(messages)` (module `generation`) never retry and never fall back to another runtime. `.streamGroundedAnswer({ question, evidence, history })` builds the chat prompt.
 - `GET /health` also reports `inference` (`runtime`, `status`, and availability of each configured model) and returns 503 `degraded` when the runtime is unreachable or a model is missing.
 - Only `inference/constants/runtime-adapters.ts` may import an adapter, and adapter folders cannot import each other; lint enforces both. To add a runtime, see decision 0005.
 - Switching runtime means setting `INFERENCE_RUNTIME`, `EMBEDDING_MODEL`, and `CHAT_MODEL` together, because each runtime names models its own way.
@@ -268,6 +297,13 @@ Configuration is validated at startup; invalid values stop the API. See [.env.ex
 | `RETRIEVAL_RRF_K`                                                                                              | `60`                      | Reciprocal Rank Fusion constant (1 to 1000)                                   |
 | `RETRIEVAL_HNSW_EF_SEARCH`                                                                                     | `100`                     | pgvector `hnsw.ef_search` per vector query (1 to 1000)                        |
 | `RETRIEVAL_DEBUG_ENDPOINT`                                                                                     | `false`                   | `true` exposes `POST /search`; otherwise it answers `404`                     |
+| `CHAT_MAX_QUESTION_CHARS`                                                                                      | `4000`                    | Longer questions get `400` (100 to 20000)                                     |
+| `CHAT_HISTORY_TURNS`                                                                                           | `4`                       | Earlier question and answer pairs sent as history (0 to 20)                   |
+| `CHAT_HISTORY_MAX_CHARS`                                                                                       | `4000`                    | Most characters of history; older turns are dropped first                     |
+| `CHAT_MAX_CONCURRENT`                                                                                          | `1`                       | Answers generated at once; more get `429` (1 to 4)                            |
+| `CHAT_GENERATION_TIMEOUT_MS`                                                                                   | `120000`                  | Wall time for one chat request, retrieval included (1000 to 1800000)          |
+| `CHAT_MIN_VECTOR_SIMILARITY`                                                                                   | `0.5`                     | Abstain below this best cosine similarity when nothing matched lexically      |
+| `CHAT_RETENTION_DAYS`                                                                                          | unset (keep)              | Delete conversations not updated for this many days                           |
 
 ## Contributing
 

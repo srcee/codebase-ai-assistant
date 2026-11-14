@@ -2,7 +2,7 @@
 
 **Goal:** Usable React interface for projects, code and document sources, sync and indexing status, chat with scope selection, and source inspection.
 
-**Status:** Not started (web app only shows the API status)
+**Status:** Not started (Stage 9 added a minimal chat: scope picker, streaming answers with citations, abstention display, conversation list; it is the starting point here)
 
 **Prerequisites:** Stages 8-16 (API complete).
 

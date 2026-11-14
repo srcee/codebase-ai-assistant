@@ -5,8 +5,11 @@ import {
   assertDisposableDatabase,
   type ChunkInsert,
   chunkFactory,
+  conversationFactory,
   describeWithDatabase,
   indexJobFactory,
+  messageCitationFactory,
+  messageFactory,
   projectFactory,
   projectSourceFactory,
   resetSchema,
@@ -23,8 +26,10 @@ import { runMigrations } from '../connection/migrate';
 import { DatabaseService } from '../nest/database.service';
 import {
   chunks,
+  conversations,
   EMBEDDING_DIMENSIONS,
   indexJobs,
+  messageCitations,
   projectSources,
   projects,
   sourceFiles,
@@ -84,6 +89,7 @@ describeWithDatabase('database schema', (url) => {
   });
 
   afterEach(async () => {
+    await handle.db.delete(conversations);
     await handle.db.delete(projects);
     await handle.db.delete(sources);
   });
@@ -100,7 +106,10 @@ describeWithDatabase('database schema', (url) => {
     );
     expect(rows.map((r) => r.tablename)).toEqual([
       'chunks',
+      'conversations',
       'index_jobs',
+      'message_citations',
+      'messages',
       'project_sources',
       'projects',
       'source_files',
@@ -144,6 +153,41 @@ describeWithDatabase('database schema', (url) => {
     const { file } = await seed();
     await handle.db.delete(sourceFiles).where(eq(sourceFiles.id, file.id));
     expect(await count(chunks)).toBe(0);
+  });
+
+  it.each([[{ role: 'system' }], [{ status: 'pending' }]])(
+    'rejects a message with %j',
+    async (invalid) => {
+      const conversation = await conversationFactory.create({}, create());
+      const error = await failure(
+        messageFactory.create(
+          { conversationId: conversation.id, ...invalid },
+          create(),
+        ),
+      );
+      expect(error.code).toBe('23514');
+    },
+  );
+
+  it('keeps a citation when its chunk is deleted', async () => {
+    const { chunk } = await seed();
+    const conversation = await conversationFactory.create({}, create());
+    const message = await messageFactory.create(
+      { conversationId: conversation.id, role: 'assistant' },
+      create(),
+    );
+    const citation = await messageCitationFactory.create(
+      { messageId: message.id, chunkId: chunk.id },
+      create(),
+    );
+
+    await handle.db.delete(chunks).where(eq(chunks.id, chunk.id));
+
+    const [kept] = await handle.db
+      .select()
+      .from(messageCitations)
+      .where(eq(messageCitations.id, citation.id));
+    expect(kept).toMatchObject({ chunkId: null, locator: citation.locator });
   });
 
   it('enforces unique relative paths per source', async () => {

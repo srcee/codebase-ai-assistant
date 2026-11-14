@@ -1,0 +1,26 @@
+meta {
+  name: Ask project
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/chat
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "question": "Where are retries handled, and what is the limit?",
+    "projectId": "{{projectId}}"
+  }
+}
+
+docs {
+  The response is a text/event-stream: meta, token events, then done (answer, citations, invalidCitations) or error.
+}
+
+assert {
+  res.status: eq 200
+}

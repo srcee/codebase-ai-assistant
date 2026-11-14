@@ -16,7 +16,7 @@
       "executor": "nx:run-commands",
       "cache": false,
       "options": {
-        "command": "docker compose --profile test up -d --wait postgres-test"
+        "command": "node libs/server/database/scripts/test-up.mjs"
       }
     },
     "down": {
