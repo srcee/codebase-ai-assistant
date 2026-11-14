@@ -53,7 +53,7 @@ Adopted: the prefixes, set in `.env.example`. The model documents them and they 
 ## Consequences
 
 - Baseline (`reports/baseline.md`, 102 chunks): hybrid Recall@10 97.4% and MRR@10 0.850, against 94.7% / 0.829 for vector and 93.4% / 0.820 for lexical. The corpus is small, so these numbers are optimistic and are meant for comparing runs.
-- Fused scores are rank-based and only comparable within one response, so Stage 8 cannot use them as an absolute threshold for abstaining.
+- Fused scores are rank-based and only comparable within one response, so Stage 9 (chat) cannot use them as an absolute threshold for abstaining.
 - Retrieval depends on a function in the ingestion utilities. If more modules need it, it moves to a shared place.
 - `search_terms` stores each chunk's words a second time, which costs disk and index size.
 - The evaluation corpus is small, so recall is near its ceiling and most settings cannot be told apart. A larger or harder corpus is the first thing to add before tuning chunk size, candidates, or k again.

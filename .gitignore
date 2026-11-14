@@ -42,11 +42,6 @@ desktop.ini
 tmp/
 out-tsc/
 
-# Local planning docs (decision records are kept)
-docs/*
-!docs/decisions/
-docs/local/
-
 # Generated API token
 .local/
 

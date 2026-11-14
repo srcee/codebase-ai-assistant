@@ -11,7 +11,7 @@ In V1, repository source code and anything derived from it (chunks, embeddings, 
 Early development. Work is split into stages; see [docs/](docs/):
 
 - [Project context and architecture](docs/Codebase_RAG_Assistant_Project_Context.md)
-- Stage plans: `docs/stage-0.md` through `docs/stage-10.md`
+- Stage plans: `docs/stage-0.md` through `docs/stage-19.md`. Stages 8 and 10-16 add document collections and projects for product documentation; Stage 19 is security hardening and release.
 
 ## Planned stack
 

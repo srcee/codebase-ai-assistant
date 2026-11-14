@@ -3,7 +3,7 @@ import type { ChatMessage } from '../../inference/types/chat-message';
 import { CHAT_PORT, type ChatPort } from '../../inference/types/chat-port';
 import type { InferenceRequestOptions } from '../../inference/types/inference-request-options';
 
-/** Runtime-agnostic generation entry point; prompt construction joins it in Stage 8. */
+/** Runtime-agnostic generation entry point; prompt construction joins it in Stage 9. */
 @Injectable()
 export class GenerationService {
   constructor(@Inject(CHAT_PORT) private readonly chat: ChatPort) {}
