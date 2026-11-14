@@ -12,4 +12,6 @@ export interface SearchCandidate {
   contentKind: ContentKind;
   locator: Locator;
   content: string;
+  /** Cosine similarity to the query, set only by vector search; unlike fused scores it is absolute. */
+  vectorSimilarity?: number;
 }

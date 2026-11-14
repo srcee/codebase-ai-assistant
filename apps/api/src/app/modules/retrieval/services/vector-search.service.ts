@@ -56,6 +56,9 @@ export class VectorSearchService {
     // Relaxed-order scans may return rows slightly out of order.
     return rows
       .sort((a, b) => Number(a.distance) - Number(b.distance))
-      .map(({ distance: _distance, ...row }) => toSearchCandidate(row));
+      .map(({ distance, ...row }) => ({
+        ...toSearchCandidate(row),
+        vectorSimilarity: 1 - Number(distance),
+      }));
   }
 }

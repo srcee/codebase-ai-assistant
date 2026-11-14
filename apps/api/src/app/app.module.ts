@@ -15,6 +15,7 @@ import {
   restoreRequestContextMiddleware,
 } from './middleware/restore-request-context.middleware';
 import { AuthModule } from './modules/auth/auth.module';
+import { ChatModule } from './modules/chat/chat.module';
 import { HealthModule } from './modules/health/health.module';
 import { CodebasesModule } from './modules/codebases/codebases.module';
 import { EmbeddingsModule } from './modules/embeddings/embeddings.module';
@@ -39,6 +40,7 @@ import { RetrievalModule } from './modules/retrieval/retrieval.module';
     IndexingModule,
     ProjectsModule,
     RetrievalModule,
+    ChatModule,
   ],
   providers: [
     { provide: APP_CONFIG, useFactory: () => loadConfig() },

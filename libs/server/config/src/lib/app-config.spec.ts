@@ -281,6 +281,46 @@ describe('loadConfig', () => {
     });
   });
 
+  describe('chat', () => {
+    it('uses documented defaults and keeps conversations by default', () => {
+      expect(loadConfig({}).chat).toEqual({
+        maxQuestionChars: 4000,
+        historyTurns: 4,
+        historyMaxChars: 4000,
+        maxConcurrent: 1,
+        generationTimeoutMs: 120000,
+        minVectorSimilarity: 0.5,
+        retentionDays: undefined,
+      });
+    });
+
+    it('reads overrides', () => {
+      expect(
+        loadConfig({
+          CHAT_MAX_CONCURRENT: '2',
+          CHAT_MIN_VECTOR_SIMILARITY: '0.35',
+          CHAT_RETENTION_DAYS: '30',
+        }).chat,
+      ).toMatchObject({
+        maxConcurrent: 2,
+        minVectorSimilarity: 0.35,
+        retentionDays: 30,
+      });
+    });
+
+    it.each([
+      ['CHAT_MAX_QUESTION_CHARS', '99'],
+      ['CHAT_HISTORY_TURNS', '21'],
+      ['CHAT_MAX_CONCURRENT', '0'],
+      ['CHAT_MAX_CONCURRENT', '5'],
+      ['CHAT_GENERATION_TIMEOUT_MS', '10'],
+      ['CHAT_MIN_VECTOR_SIMILARITY', '1.5'],
+      ['CHAT_RETENTION_DAYS', '0'],
+    ])('rejects %s=%s', (key, value) => {
+      expect(() => loadConfig({ [key]: value })).toThrow(ConfigError);
+    });
+  });
+
   describe('indexing', () => {
     it('defaults to an embedding concurrency of 2', () => {
       expect(loadConfig({}).indexing).toEqual({ embedConcurrency: 2 });

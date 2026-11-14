@@ -1,0 +1,23 @@
+meta {
+  name: List conversations
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/conversations?limit=20
+  body: none
+  auth: inherit
+}
+
+params:query {
+  limit: 20
+}
+
+vars:post-response {
+  conversationId: res.body.items[0]?.id
+}
+
+assert {
+  res.status: eq 200
+}
