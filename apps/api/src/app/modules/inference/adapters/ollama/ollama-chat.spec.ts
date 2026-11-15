@@ -73,6 +73,28 @@ describe('OllamaChat', () => {
         model: config.inference.chatModel,
         messages: input,
         stream: false,
+        options: {
+          num_ctx: config.chat.contextTokens,
+          num_predict: config.chat.maxAnswerTokens,
+          temperature: config.chat.temperature,
+        },
+      });
+    });
+
+    it('sends the configured context window, answer limit and temperature', async () => {
+      server.on('POST', '/api/chat', (_req, res) =>
+        respondJson(res, 200, ollamaChatChunkFactory.final().build()),
+      );
+      const { service } = serviceWith({
+        CHAT_CONTEXT_TOKENS: '16384',
+        CHAT_MAX_ANSWER_TOKENS: '512',
+        CHAT_TEMPERATURE: '0',
+      });
+
+      await service.complete(messages());
+
+      expect(server.requestsTo('/api/chat')[0].body).toMatchObject({
+        options: { num_ctx: 16384, num_predict: 512, temperature: 0 },
       });
     });
 

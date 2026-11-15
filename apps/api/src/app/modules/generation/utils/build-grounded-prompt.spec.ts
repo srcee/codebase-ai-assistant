@@ -144,6 +144,24 @@ describe('buildGroundedPrompt', () => {
       { role: 'assistant', content: history[1].answer },
     ]);
   });
+
+  it('removes earlier citation markers from history answers', () => {
+    const question = faker.lorem.sentence();
+
+    const messages = buildGroundedPrompt(
+      {
+        question: faker.lorem.sentence(),
+        evidence: [],
+        history: [{ question, answer: 'Retries stop at 3 [2][5].' }],
+      },
+      budget,
+    );
+
+    expect(messages[2]).toEqual({
+      role: 'assistant',
+      content: 'Retries stop at 3.',
+    });
+  });
 });
 
 describe('trimHistory', () => {

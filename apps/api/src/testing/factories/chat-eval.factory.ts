@@ -8,7 +8,9 @@ export const chatAnswerScoreFactory = Factory.define<ChatAnswerScore>(
   ({ sequence }) => ({
     id: `question-${sequence}`,
     answerable: true,
+    followUp: false,
     abstained: false,
+    unsupported: false,
     declined: false,
     validCitations: faker.number.int({ min: 0, max: 3 }),
     invalidCitations: 0,
@@ -27,6 +29,8 @@ const chatSummaryFactory = Factory.define<ChatSummary>(() => ({
   abstentionRecall: faker.number.float({ min: 0, max: 1 }),
   serverAbstentionRecall: faker.number.float({ min: 0, max: 1 }),
   falseAbstention: faker.number.float({ min: 0, max: 1 }),
+  followUps: faker.number.int({ min: 1, max: 5 }),
+  followUpExpectedCited: faker.number.float({ min: 0, max: 1 }),
   latencyP50Ms: faker.number.int({ min: 100, max: 2000 }),
   latencyP95Ms: faker.number.int({ min: 2000, max: 9000 }),
 }));
@@ -36,13 +40,18 @@ export const chatEvalReportFactory = Factory.define<ChatEvalReport>(() => {
   return {
     label: base.label,
     generatedAt: base.generatedAt,
-    questionSetVersion: 1,
+    questionSetVersion: 2,
     chatModel: faker.word.noun(),
     config: {
       ...base.config,
       minVectorSimilarity: 0.5,
+      minTermCoverage: 0.5,
       maxChunks: 8,
       maxContextChars: 12000,
+      contextTokens: 8192,
+      maxAnswerTokens: 1024,
+      temperature: 0.1,
+      rewriteFollowUps: true,
     },
     summary: chatSummaryFactory.build(),
     answers: chatAnswerScoreFactory.buildList(2),

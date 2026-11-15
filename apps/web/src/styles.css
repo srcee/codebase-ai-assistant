@@ -131,9 +131,16 @@ button.icon {
   background: #3b6ee81a;
 }
 
-.message--abstained {
+.message--abstained,
+.message--unsupported {
   border-style: dashed;
   border-color: var(--warn);
+}
+
+.warning {
+  margin: 0.5rem 0 0;
+  color: var(--warn);
+  font-size: 0.85rem;
 }
 
 .message--failed {

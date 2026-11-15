@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { evalRoot } from './eval-root';
+import { expectedLocation } from './eval-questions';
 
 const chatQuestionSet = z.object({
   version: z.number().int().min(1),
@@ -10,11 +11,22 @@ const chatQuestionSet = z.object({
   unanswerable: z
     .array(z.object({ id: z.string().min(1), question: z.string().min(1) }))
     .min(1),
+  /** Asked in one conversation after `first`; the follow-up refers back to it. */
+  followUps: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        first: z.string().min(1),
+        question: z.string().min(1),
+        expected: z.array(expectedLocation).min(1),
+      }),
+    )
+    .min(1),
 });
 
 export type ChatQuestionSet = z.infer<typeof chatQuestionSet>;
 
-export const CHAT_QUESTIONS_FILE = 'chat-questions.v1.json';
+export const CHAT_QUESTIONS_FILE = 'chat-questions.v2.json';
 
 /** Answerable questions come from the retrieval set; this file adds questions the corpus cannot answer. */
 export function loadChatQuestionSet(root = evalRoot()): ChatQuestionSet {

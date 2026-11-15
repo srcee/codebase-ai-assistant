@@ -42,12 +42,17 @@ export interface LexicalQuery {
   phrase: string;
 }
 
-/** Undefined when no searchable term remains. */
-export function buildLexicalQuery(text: string): LexicalQuery | undefined {
-  const terms = searchTermsFor(text)
+/** Distinct lower-case query terms without stopwords, as the lexical search uses them. */
+export function lexicalTermsFor(text: string): string[] {
+  return searchTermsFor(text)
     .split(' ')
     .filter((term) => term !== '' && !STOPWORDS.has(term))
     .slice(0, MAX_TERMS);
+}
+
+/** Undefined when no searchable term remains. */
+export function buildLexicalQuery(text: string): LexicalQuery | undefined {
+  const terms = lexicalTermsFor(text);
   if (terms.length === 0) return undefined;
   return { tsquery: terms.join(' | '), phrase: text };
 }

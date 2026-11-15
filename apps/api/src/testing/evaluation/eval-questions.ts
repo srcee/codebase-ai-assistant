@@ -12,7 +12,7 @@ export const QUESTION_CATEGORIES = [
 ] as const;
 export type QuestionCategory = (typeof QUESTION_CATEGORIES)[number];
 
-const expectedLocation = z.object({
+export const expectedLocation = z.object({
   path: z.string().min(1),
   startLine: z.number().int().min(1),
   endLine: z.number().int().min(1),

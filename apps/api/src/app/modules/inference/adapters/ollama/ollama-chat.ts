@@ -57,7 +57,17 @@ export class OllamaChat implements ChatPort {
     messages: readonly ChatMessage[],
     stream: boolean,
   ): OllamaChatRequest {
-    return { model: this.config.inference.chatModel, messages, stream };
+    const { contextTokens, maxAnswerTokens, temperature } = this.config.chat;
+    return {
+      model: this.config.inference.chatModel,
+      messages,
+      stream,
+      options: {
+        num_ctx: contextTokens,
+        num_predict: maxAnswerTokens,
+        temperature,
+      },
+    };
   }
 }
 

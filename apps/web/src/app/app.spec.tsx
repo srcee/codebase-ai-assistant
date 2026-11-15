@@ -163,6 +163,30 @@ describe('App', () => {
       expect(screen.queryByRole('list', { name: 'Citations' })).toBeNull();
     });
 
+    it('warns about an answer without citations', async () => {
+      const done = chatDoneEventFactory.build({
+        status: 'unsupported',
+        citations: [],
+        suggestions: [faker.lorem.sentence()],
+      });
+      mockApi({
+        ...scopes,
+        'POST /chat': () => eventStream([{ event: 'done', data: done }]),
+      });
+      render(<App />);
+      await chooseScope(`project:${project.id}`);
+
+      ask('Vague question?');
+
+      expect(await screen.findByText(done.answer)).toBeTruthy();
+      expect(screen.getByRole('note').textContent).toContain(
+        'cites no evidence',
+      );
+      expect(
+        screen.getByRole('list', { name: 'Suggestions' }).textContent,
+      ).toContain(done.suggestions[0]);
+    });
+
     it('explains an unavailable inference runtime', async () => {
       const message = faker.lorem.sentence();
       mockApi({

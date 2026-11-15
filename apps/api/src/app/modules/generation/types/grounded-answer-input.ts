@@ -5,9 +5,15 @@ export interface ConversationTurn {
   answer: string;
 }
 
-export interface GroundedAnswerInput {
+export interface GroundedAnswerInput<T extends EvidenceItem = EvidenceItem> {
   question: string;
-  evidence: readonly EvidenceItem[];
+  evidence: readonly T[];
   /** Oldest first; trimmed to the configured history budget. */
+  history: readonly ConversationTurn[];
+}
+
+export interface FollowUpInput {
+  question: string;
+  /** Oldest first. */
   history: readonly ConversationTurn[];
 }

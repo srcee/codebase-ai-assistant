@@ -12,6 +12,6 @@ export const constraints = (table: Columns) => [
   check('messages_role_check', sql`${table.role} in ('user', 'assistant')`),
   check(
     'messages_status_check',
-    sql`${table.status} in ('complete', 'abstained')`,
+    sql`${table.status} in ('complete', 'abstained', 'unsupported')`,
   ),
 ];

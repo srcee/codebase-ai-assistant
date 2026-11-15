@@ -156,7 +156,22 @@ const envSchema = z
       .max(1800000)
       .default(120000),
     CHAT_MIN_VECTOR_SIMILARITY: z.coerce.number().min(0).max(1).default(0.5),
+    CHAT_MIN_TERM_COVERAGE: z.coerce.number().min(0).max(1).default(0.5),
     CHAT_RETENTION_DAYS: z.coerce.number().int().min(1).max(36500).optional(),
+    CHAT_CONTEXT_TOKENS: z.coerce
+      .number()
+      .int()
+      .min(2048)
+      .max(131072)
+      .default(8192),
+    CHAT_MAX_ANSWER_TOKENS: z.coerce
+      .number()
+      .int()
+      .min(64)
+      .max(16384)
+      .default(1024),
+    CHAT_TEMPERATURE: z.coerce.number().min(0).max(2).default(0.1),
+    CHAT_REWRITE_FOLLOW_UPS: enabledByDefaultFlag,
   })
   .superRefine((env, ctx) => {
     if (!LOOPBACK_HOSTS.has(env.API_HOST)) {
@@ -199,6 +214,13 @@ const envSchema = z
         code: 'custom',
         path: ['INGEST_MAX_FILE_BYTES'],
         message: 'must not exceed INGEST_MAX_TOTAL_BYTES',
+      });
+    }
+    if (env.CHAT_MAX_ANSWER_TOKENS * 2 > env.CHAT_CONTEXT_TOKENS) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['CHAT_MAX_ANSWER_TOKENS'],
+        message: 'must be at most half of CHAT_CONTEXT_TOKENS',
       });
     }
   });
@@ -281,8 +303,16 @@ export interface ChatConfig {
   generationTimeoutMs: number;
   /** Below this best cosine similarity, with no lexical hit, chat abstains. */
   minVectorSimilarity: number;
+  /** Share of query terms one lexically matched chunk must contain to count as a lexical hit. */
+  minTermCoverage: number;
   /** Undefined keeps conversations until deleted. */
   retentionDays?: number;
+  /** Model context window for prompt and answer together; the prompt is fitted to it. */
+  contextTokens: number;
+  maxAnswerTokens: number;
+  temperature: number;
+  /** Rewrites a follow-up into a standalone retrieval query with one extra model call. */
+  rewriteFollowUps: boolean;
 }
 
 export const APP_CONFIG = Symbol('APP_CONFIG');
@@ -364,7 +394,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       maxConcurrent: e.CHAT_MAX_CONCURRENT,
       generationTimeoutMs: e.CHAT_GENERATION_TIMEOUT_MS,
       minVectorSimilarity: e.CHAT_MIN_VECTOR_SIMILARITY,
+      minTermCoverage: e.CHAT_MIN_TERM_COVERAGE,
       retentionDays: e.CHAT_RETENTION_DAYS,
+      contextTokens: e.CHAT_CONTEXT_TOKENS,
+      maxAnswerTokens: e.CHAT_MAX_ANSWER_TOKENS,
+      temperature: e.CHAT_TEMPERATURE,
+      rewriteFollowUps: e.CHAT_REWRITE_FOLLOW_UPS,
     },
   };
 }

@@ -43,7 +43,7 @@ import { ABSTENTION_ANSWER } from './constants/abstention';
 import { ConversationRetentionService } from './services/conversation-retention.service';
 import { ConversationsService } from './services/conversations.service';
 
-const { chunks, conversations, projects, sources } = schema;
+const { chunks, conversations, messages, projects, sources } = schema;
 
 const QUERY_AXIS = 0;
 const UNRELATED_AXIS = 5;
@@ -58,7 +58,10 @@ describeWithDatabase('chat', (baseUrl) => {
   let handle: DatabaseHandle;
   let identity: string;
   let script: StreamScript;
+  let rewrite: string;
   const prompts: ChatMessage[][] = [];
+  const rewritePrompts: ChatMessage[][] = [];
+  const embedded: string[] = [];
 
   const create = () => ({ transient: { db: handle.db } });
 
@@ -136,14 +139,19 @@ describeWithDatabase('chat', (baseUrl) => {
         {
           provide: EMBEDDING_PORT,
           useValue: {
-            embedBatch: async (texts: readonly string[]) =>
-              texts.map(() => axisVector(QUERY_AXIS)),
+            embedBatch: async (texts: readonly string[]) => {
+              embedded.push(...texts);
+              return texts.map(() => axisVector(QUERY_AXIS));
+            },
           },
         },
         {
           provide: CHAT_PORT,
           useValue: {
-            complete: jest.fn(),
+            complete: async (sent: readonly ChatMessage[]) => {
+              rewritePrompts.push([...sent]);
+              return rewrite;
+            },
             stream: (sent: readonly ChatMessage[]) => {
               prompts.push([...sent]);
               return script(sent);
@@ -157,7 +165,10 @@ describeWithDatabase('chat', (baseUrl) => {
 
   beforeEach(() => {
     prompts.length = 0;
+    rewritePrompts.length = 0;
+    embedded.length = 0;
     script = reply('No answer.');
+    rewrite = '';
   });
 
   afterEach(async () => {
@@ -265,6 +276,31 @@ describeWithDatabase('chat', (baseUrl) => {
 
       for (const spy of spies) assertNotLeaked(spy.mock.calls, CANARY_SECRET);
     });
+
+    it('stores an answer without valid citations as unsupported, with suggestions', async () => {
+      const repo = await sourceFactory.create({}, create());
+      await seedChunk(repo, 'export function computeInvoiceTotal() {}');
+      script = reply('Probably somewhere in billing [9].');
+
+      const { events } = await ask({
+        question: 'How is the invoice total computed?',
+        sourceIds: [repo.id],
+      });
+
+      const done = doneOf(events);
+      expect(done).toMatchObject({
+        status: 'unsupported',
+        answer: 'Probably somewhere in billing.',
+        citations: [],
+        invalidCitations: [9],
+      });
+      expect(done.suggestions.length).toBeGreaterThan(0);
+      const [message] = await handle.db
+        .select({ status: messages.status })
+        .from(messages)
+        .where(eq(messages.role, 'assistant'));
+      expect(message.status).toBe('unsupported');
+    });
   });
 
   describe('scope', () => {
@@ -337,6 +373,19 @@ describeWithDatabase('chat', (baseUrl) => {
 
       const { events } = await ask({
         question: 'How does billing work?',
+        sourceIds: [repo.id],
+      });
+
+      expect(doneOf(events).status).toBe('abstained');
+      expect(prompts).toHaveLength(0);
+    });
+
+    it('abstains when the only lexical match shares one word with the question', async () => {
+      const repo = await sourceFactory.create({}, create());
+      await seedChunk(repo, 'export const billing = "blue";', UNRELATED_AXIS);
+
+      const { events } = await ask({
+        question: 'How are billing invoices refunded?',
         sourceIds: [repo.id],
       });
 
@@ -438,7 +487,7 @@ describeWithDatabase('chat', (baseUrl) => {
 
       const roles = prompts[1].map((message) => message.role);
       expect(roles).toEqual(['system', 'user', 'assistant', 'user']);
-      expect(prompts[1][2].content).toBe('First answer [1].');
+      expect(prompts[1][2].content).toBe('First answer.');
 
       const response = await authorizedAgent(app)
         .get(`/conversations/${conversationId}`)
@@ -451,6 +500,64 @@ describeWithDatabase('chat', (baseUrl) => {
         'assistant',
       ]);
       expect(conversation.messages.items[1].citations).toHaveLength(1);
+    });
+
+    it('retrieves a follow-up with the rewritten query and answers the question as asked', async () => {
+      const repo = await sourceFactory.create({}, create());
+      await seedChunk(repo, 'export const retryLimit = 3;');
+      script = reply('The limit is 3 [1].');
+      const conversationId = await askInto(repo);
+      expect(rewritePrompts).toHaveLength(0);
+
+      rewrite = 'where is retryLimit tested';
+      embedded.length = 0;
+      const question = 'Where is it tested?';
+      await ask({ question, sourceIds: [repo.id], conversationId });
+
+      expect(rewritePrompts).toHaveLength(1);
+      expect(rewritePrompts[0][1].content).toContain('The limit is 3.');
+      expect(embedded).toEqual([expect.stringContaining(rewrite)]);
+      const sent = prompts[1];
+      expect(sent[sent.length - 1].content.trimEnd().endsWith(question)).toBe(
+        true,
+      );
+      expect(lastPrompt()).not.toContain(rewrite);
+    });
+
+    it('never lets a rewritten query reach an unselected source', async () => {
+      const selected = await sourceFactory.create({}, create());
+      const other = await sourceFactory.create({}, create());
+      await seedChunk(selected, 'export const retryLimit = 3;');
+      const excluded = await seedChunk(
+        other,
+        `export const secret = '${CANARY_SECRET}';`,
+      );
+      script = reply('Three [1].');
+      const conversationId = await askInto(selected);
+
+      rewrite = `secret ${CANARY_SECRET}`;
+      await ask({
+        question: 'And the secret?',
+        sourceIds: [selected.id],
+        conversationId,
+      });
+
+      expect(lastPrompt()).not.toContain(excluded.content);
+    });
+
+    it('leaves abstained turns out of history and skips the rewrite for them', async () => {
+      const repo = await sourceFactory.create({}, create());
+      const conversationId = await askInto(repo);
+      expect(prompts).toHaveLength(0);
+
+      await seedChunk(repo, 'export function computeInvoiceTotal() {}');
+      await askInto(repo, conversationId);
+
+      expect(prompts[0].map((message) => message.role)).toEqual([
+        'system',
+        'user',
+      ]);
+      expect(rewritePrompts).toHaveLength(0);
     });
 
     it('returns 404 for an unknown conversation', async () => {

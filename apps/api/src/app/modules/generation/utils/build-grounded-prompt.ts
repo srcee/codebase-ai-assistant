@@ -7,6 +7,7 @@ import type {
   ConversationTurn,
   GroundedAnswerInput,
 } from '../types/grounded-answer-input';
+import { filterCitationNumbers } from './citation-markers';
 import { formatLocator } from './format-locator';
 
 export interface HistoryBudget {
@@ -32,7 +33,7 @@ function columnsLine(locator: Locator): string[] {
     : [];
 }
 
-function evidenceBlock(
+export function evidenceBlock(
   item: EvidenceItem,
   index: number,
   token: string,
@@ -77,7 +78,11 @@ export function buildGroundedPrompt(
   const history = trimHistory(input.history, budget).flatMap(
     (turn): ChatMessage[] => [
       { role: 'user', content: turn.question },
-      { role: 'assistant', content: turn.answer },
+      // Earlier [n] markers point at earlier evidence, not at this request's blocks.
+      {
+        role: 'assistant',
+        content: filterCitationNumbers(turn.answer, () => false),
+      },
     ],
   );
   const evidence = input.evidence.map((item, index) =>
