@@ -1,0 +1,88 @@
+{
+  "version": 2,
+  "corpus": "libs/server/testing/eval/corpus",
+  "answerableQuestionSet": "questions.v1.json",
+  "unanswerable": [
+    {
+      "id": "unanswerable-01",
+      "question": "How is the Kubernetes deployment configured?"
+    },
+    {
+      "id": "unanswerable-02",
+      "question": "Which GraphQL resolvers handle product search?"
+    },
+    {
+      "id": "unanswerable-03",
+      "question": "How does the mobile app sync offline orders?"
+    },
+    {
+      "id": "unanswerable-04",
+      "question": "Which machine learning model recommends products to customers?"
+    },
+    {
+      "id": "unanswerable-05",
+      "question": "How are push notifications sent to iOS devices?"
+    },
+    {
+      "id": "unanswerable-06",
+      "question": "Which Terraform module provisions the production database?"
+    },
+    {
+      "id": "unanswerable-07",
+      "question": "How are loyalty points earned and redeemed?"
+    },
+    {
+      "id": "unanswerable-08",
+      "question": "What is the capital of France?"
+    },
+    {
+      "id": "unanswerable-09",
+      "question": "How is the websocket chat between support agents and customers implemented?"
+    },
+    {
+      "id": "unanswerable-10",
+      "question": "Which A/B testing service assigns users to experiments?"
+    }
+  ],
+  "followUps": [
+    {
+      "id": "follow-up-01",
+      "first": "Where is computeInvoiceTotal defined?",
+      "question": "Which VAT rate does it apply for Germany?",
+      "expected": [
+        {
+          "path": "src/billing/tax-rules.ts",
+          "startLine": 1,
+          "endLine": 7,
+          "anchor": "DE: 0.19"
+        }
+      ]
+    },
+    {
+      "id": "follow-up-02",
+      "first": "retryWithBackoff implementation",
+      "question": "How is the delay between its attempts calculated?",
+      "expected": [
+        {
+          "path": "src/http/retry-policy.ts",
+          "startLine": 26,
+          "endLine": 29,
+          "anchor": "export function backoffDelay"
+        }
+      ]
+    },
+    {
+      "id": "follow-up-03",
+      "first": "Show the applyDiscountCode function",
+      "question": "Which codes does it accept?",
+      "expected": [
+        {
+          "path": "src/billing/invoice-calculator.ts",
+          "startLine": 15,
+          "endLine": 18,
+          "anchor": "WELCOME10"
+        }
+      ]
+    }
+  ]
+}

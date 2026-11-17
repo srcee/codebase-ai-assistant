@@ -2,7 +2,7 @@
 
 **Goal:** Answer questions from retrieved evidence with validated citations, abstain when evidence is insufficient, and persist conversations locally.
 
-**Status:** In progress in CAA-17 (decision 0013; includes a minimal web chat ahead of Stage 17; chat evaluation report pending)
+**Status:** In progress in CAA-18 (decision 0013). CAA-17 shipped chat, citations, abstention, conversations, and a minimal web chat ahead of Stage 17. CAA-18 adds the context budget, history hygiene, follow-up rewrite, the term-coverage abstention gate, and the `unsupported` status. The chat evaluation report (`chat-stage9-baseline` vs `chat-stage9`) is still pending.
 
 **Prerequisites:** Stages 5, 7, and 8 (sources, projects, locators).
 

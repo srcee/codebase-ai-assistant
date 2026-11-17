@@ -8,13 +8,20 @@ function Message({ item }: { item: ChatItem }) {
         {item.content || (item.state === 'streaming' ? 'Thinking…' : '')}
       </div>
       {item.state === 'stopped' && <p className="muted">Stopped.</p>}
-      {item.state === 'abstained' && item.suggestions.length > 0 && (
-        <ul className="suggestions" aria-label="Suggestions">
-          {item.suggestions.map((suggestion) => (
-            <li key={suggestion}>{suggestion}</li>
-          ))}
-        </ul>
+      {item.state === 'unsupported' && (
+        <p className="warning" role="note">
+          This answer cites no evidence from the selected sources. Verify it
+          before relying on it.
+        </p>
       )}
+      {(item.state === 'abstained' || item.state === 'unsupported') &&
+        item.suggestions.length > 0 && (
+          <ul className="suggestions" aria-label="Suggestions">
+            {item.suggestions.map((suggestion) => (
+              <li key={suggestion}>{suggestion}</li>
+            ))}
+          </ul>
+        )}
       {item.citations.length > 0 && (
         <ol className="citations" aria-label="Citations">
           {item.citations.map((citation) => (

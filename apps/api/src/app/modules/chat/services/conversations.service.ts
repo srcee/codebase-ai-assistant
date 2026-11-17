@@ -33,7 +33,7 @@ const titleOf = (question: string): string => {
 export class ConversationsService {
   constructor(private readonly database: DatabaseService) {}
 
-  /** Newest turns last; throws when the conversation does not exist. */
+  /** Newest turns last, without abstentions; throws when the conversation does not exist. */
   async recentTurns(
     conversationId: string,
     maxTurns: number,
@@ -41,7 +41,11 @@ export class ConversationsService {
     await this.requireConversation(conversationId);
     if (maxTurns === 0) return [];
     const rows = await this.database.db
-      .select({ role: messages.role, content: messages.content })
+      .select({
+        role: messages.role,
+        status: messages.status,
+        content: messages.content,
+      })
       .from(messages)
       .where(eq(messages.conversationId, conversationId))
       .orderBy(desc(messages.createdAt), desc(messages.id))
@@ -51,7 +55,12 @@ export class ConversationsService {
     const ordered = rows.reverse();
     ordered.forEach((row, index) => {
       const next = ordered[index + 1];
-      if (row.role === 'user' && next?.role === 'assistant') {
+      // A fixed abstention text tells the model nothing about the topic.
+      if (
+        row.role === 'user' &&
+        next?.role === 'assistant' &&
+        next.status !== 'abstained'
+      ) {
         turns.push({ question: row.content, answer: next.content });
       }
     });

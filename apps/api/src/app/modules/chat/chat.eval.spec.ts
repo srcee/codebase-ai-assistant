@@ -127,6 +127,42 @@ if (!enabled) {
         );
       }
 
+      for (const followUp of chatSet.followUps) {
+        const first = await bufferEventStream(
+          authorizedAgent(app)
+            .post('/chat')
+            .send({ question: followUp.first, sourceIds: [codebaseId] }),
+        );
+        const meta = parseEventStream(first.body as string).find(
+          (event) => event.event === 'meta',
+        );
+        if (!meta || meta.event !== 'meta') {
+          throw new Error(`No conversation for ${followUp.id}`);
+        }
+        const started = performance.now();
+        const response = await bufferEventStream(
+          authorizedAgent(app)
+            .post('/chat')
+            .send({
+              question: followUp.question,
+              sourceIds: [codebaseId],
+              conversationId: meta.data.conversationId,
+            }),
+        );
+        expect(response.status).toBe(200);
+        const done = parseEventStream(response.body as string).find(
+          (event) => event.event === 'done',
+        );
+        if (!done) throw new Error(`No answer for ${followUp.id}`);
+        answers.push(
+          scoreChatAnswer(
+            { ...followUp, followUp: true },
+            done.data as ChatDoneEvent,
+            performance.now() - started,
+          ),
+        );
+      }
+
       const report: ChatEvalReport = {
         label,
         generatedAt: new Date().toISOString(),
@@ -144,8 +180,13 @@ if (!enabled) {
           rrfK: config.retrieval.rrfK,
           hnswEfSearch: config.retrieval.hnswEfSearch,
           minVectorSimilarity: config.chat.minVectorSimilarity,
+          minTermCoverage: config.chat.minTermCoverage,
           maxChunks: config.retrieval.maxChunks,
           maxContextChars: config.retrieval.maxContextChars,
+          contextTokens: config.chat.contextTokens,
+          maxAnswerTokens: config.chat.maxAnswerTokens,
+          temperature: config.chat.temperature,
+          rewriteFollowUps: config.chat.rewriteFollowUps,
         },
         summary: summarizeChat(answers),
         answers,

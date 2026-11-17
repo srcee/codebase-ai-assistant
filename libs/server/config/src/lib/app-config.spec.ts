@@ -290,7 +290,12 @@ describe('loadConfig', () => {
         maxConcurrent: 1,
         generationTimeoutMs: 120000,
         minVectorSimilarity: 0.5,
+        minTermCoverage: 0.5,
         retentionDays: undefined,
+        contextTokens: 8192,
+        maxAnswerTokens: 1024,
+        temperature: 0.1,
+        rewriteFollowUps: true,
       });
     });
 
@@ -299,12 +304,22 @@ describe('loadConfig', () => {
         loadConfig({
           CHAT_MAX_CONCURRENT: '2',
           CHAT_MIN_VECTOR_SIMILARITY: '0.35',
+          CHAT_MIN_TERM_COVERAGE: '0.7',
           CHAT_RETENTION_DAYS: '30',
+          CHAT_CONTEXT_TOKENS: '16384',
+          CHAT_MAX_ANSWER_TOKENS: '2048',
+          CHAT_TEMPERATURE: '0',
+          CHAT_REWRITE_FOLLOW_UPS: 'false',
         }).chat,
       ).toMatchObject({
         maxConcurrent: 2,
         minVectorSimilarity: 0.35,
+        minTermCoverage: 0.7,
         retentionDays: 30,
+        contextTokens: 16384,
+        maxAnswerTokens: 2048,
+        temperature: 0,
+        rewriteFollowUps: false,
       });
     });
 
@@ -315,9 +330,23 @@ describe('loadConfig', () => {
       ['CHAT_MAX_CONCURRENT', '5'],
       ['CHAT_GENERATION_TIMEOUT_MS', '10'],
       ['CHAT_MIN_VECTOR_SIMILARITY', '1.5'],
+      ['CHAT_MIN_TERM_COVERAGE', '-0.1'],
       ['CHAT_RETENTION_DAYS', '0'],
+      ['CHAT_CONTEXT_TOKENS', '1024'],
+      ['CHAT_MAX_ANSWER_TOKENS', '10'],
+      ['CHAT_TEMPERATURE', '3'],
+      ['CHAT_REWRITE_FOLLOW_UPS', 'yes'],
     ])('rejects %s=%s', (key, value) => {
       expect(() => loadConfig({ [key]: value })).toThrow(ConfigError);
+    });
+
+    it('requires room for a prompt next to the answer', () => {
+      expect(() =>
+        loadConfig({
+          CHAT_CONTEXT_TOKENS: '4096',
+          CHAT_MAX_ANSWER_TOKENS: '2049',
+        }),
+      ).toThrow(/CHAT_MAX_ANSWER_TOKENS/);
     });
   });
 

@@ -9,8 +9,12 @@ const DECLINED =
 export interface ChatAnswerScore {
   id: string;
   answerable: boolean;
+  /** Asked as the second turn of a conversation; scored apart from single questions. */
+  followUp: boolean;
   /** The server returned its fixed abstention without calling the model. */
   abstained: boolean;
+  /** The model answered without a valid citation. */
+  unsupported: boolean;
   declined: boolean;
   validCitations: number;
   invalidCitations: number;
@@ -29,12 +33,15 @@ export interface ChatSummary {
   answeredWithCitation: number;
   /** Answerable questions where a valid citation points at an expected location; a groundedness proxy. */
   expectedCited: number;
-  /** Unanswerable questions that abstained or declined. */
+  /** Unanswerable questions that abstained, declined, or had no valid citation. */
   abstentionRecall: number;
   /** Unanswerable questions the server abstained on without calling the model. */
   serverAbstentionRecall: number;
-  /** Answerable questions that abstained or declined. */
+  /** Answerable questions that abstained, declined, or had no valid citation. */
   falseAbstention: number;
+  followUps: number;
+  /** Follow-ups where a valid citation points at an expected location. */
+  followUpExpectedCited: number;
   latencyP50Ms: number;
   latencyP95Ms: number;
 }
@@ -46,6 +53,7 @@ export function scoreChatAnswer(
       ExpectedLocation,
       'path' | 'startLine' | 'endLine'
     >[];
+    followUp?: boolean;
   },
   done: ChatDoneEvent,
   latencyMs: number,
@@ -54,7 +62,9 @@ export function scoreChatAnswer(
   return {
     id: question.id,
     answerable: question.expected !== undefined,
+    followUp: question.followUp ?? false,
     abstained,
+    unsupported: done.status === 'unsupported',
     declined: !abstained && DECLINED.test(done.answer),
     validCitations: done.citations.length,
     invalidCitations: done.invalidCitations.length,
@@ -70,9 +80,12 @@ const share = (count: number, total: number): number =>
   total === 0 ? 0 : count / total;
 
 export function summarizeChat(scores: readonly ChatAnswerScore[]): ChatSummary {
-  const answerable = scores.filter((score) => score.answerable);
-  const unanswerable = scores.filter((score) => !score.answerable);
-  const refused = (score: ChatAnswerScore) => score.abstained || score.declined;
+  const single = scores.filter((score) => !score.followUp);
+  const followUps = scores.filter((score) => score.followUp);
+  const answerable = single.filter((score) => score.answerable);
+  const unanswerable = single.filter((score) => !score.answerable);
+  const refused = (score: ChatAnswerScore) =>
+    score.abstained || score.declined || score.unsupported;
   const valid = scores.reduce((sum, score) => sum + score.validCitations, 0);
   const invalid = scores.reduce(
     (sum, score) => sum + score.invalidCitations,
@@ -103,6 +116,11 @@ export function summarizeChat(scores: readonly ChatAnswerScore[]): ChatSummary {
     falseAbstention: share(
       answerable.filter(refused).length,
       answerable.length,
+    ),
+    followUps: followUps.length,
+    followUpExpectedCited: share(
+      followUps.filter((score) => score.citedExpected).length,
+      followUps.length,
     ),
     latencyP50Ms: percentile(latencies, 50),
     latencyP95Ms: percentile(latencies, 95),

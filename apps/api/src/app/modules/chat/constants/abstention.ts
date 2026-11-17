@@ -6,3 +6,8 @@ export const ABSTENTION_SUGGESTIONS: readonly string[] = [
   'Check that the sources are indexed and up to date.',
   'Rephrase the question with names that appear in the code or documents, such as functions, files, or headings.',
 ];
+
+export const UNSUPPORTED_SUGGESTIONS: readonly string[] = [
+  'Ask a narrower question that names a function, file, or heading.',
+  'Select more sources or a different project.',
+];

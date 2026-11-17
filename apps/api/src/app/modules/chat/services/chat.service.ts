@@ -1,6 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import type { ChatDoneEvent, ChatStreamEvent } from '@codebase-ai/contracts';
+import type {
+  ChatDoneEvent,
+  ChatStreamEvent,
+  MessageStatus,
+} from '@codebase-ai/contracts';
 import { APP_CONFIG, type AppConfig } from '@codebase-ai/server-config';
 import { GenerationService } from '../../generation/services/generation.service';
 import {
@@ -13,6 +17,7 @@ import type { RetrievedChunk } from '../../retrieval/types/retrieved-chunk';
 import {
   ABSTENTION_ANSWER,
   ABSTENTION_SUGGESTIONS,
+  UNSUPPORTED_SUGGESTIONS,
 } from '../constants/abstention';
 import type { ChatRequestDto } from '../dto/chat-request.dto';
 import { QuestionTooLongError } from '../errors/question-too-long.error';
@@ -28,6 +33,8 @@ interface Exchange {
   askedAt: Date;
   sourceIds: string[];
   started: bigint;
+  rewritten: boolean;
+  droppedEvidence: number;
 }
 
 @Injectable()
@@ -48,8 +55,13 @@ export class ChatService {
     request: ChatRequestDto,
     signal: AbortSignal,
   ): Promise<ChatSession> {
-    const { maxQuestionChars, historyTurns, minVectorSimilarity } =
-      this.config.chat;
+    const {
+      maxQuestionChars,
+      historyTurns,
+      minVectorSimilarity,
+      minTermCoverage,
+      rewriteFollowUps,
+    } = this.config.chat;
     if (request.question.length > maxQuestionChars) {
       throw new QuestionTooLongError(maxQuestionChars);
     }
@@ -60,6 +72,8 @@ export class ChatService {
       askedAt: new Date(),
       sourceIds: await this.scope.resolve(request),
       started: process.hrtime.bigint(),
+      rewritten: false,
+      droppedEvidence: 0,
     };
     const history = request.conversationId
       ? await this.conversations.recentTurns(
@@ -68,27 +82,44 @@ export class ChatService {
         )
       : [];
 
-    const evidence = await this.retrieval.search(
-      { query: exchange.question, sourceIds: exchange.sourceIds },
+    // Only retrieval sees the rewritten query; the model answers the question as asked.
+    const query =
+      rewriteFollowUps && history.length > 0
+        ? await this.generation.rewriteFollowUp(
+            { question: exchange.question, history },
+            { signal },
+          )
+        : exchange.question;
+    exchange.rewritten = query !== exchange.question;
+
+    const retrieved = await this.retrieval.search(
+      { query, sourceIds: exchange.sourceIds },
       { signal },
     );
-    if (shouldAbstain(evidence, minVectorSimilarity)) {
+    const fitted = this.generation.fitGroundedInput({
+      question: exchange.question,
+      evidence: retrieved,
+      history,
+    });
+    exchange.droppedEvidence = retrieved.length - fitted.evidence.length;
+    if (
+      fitted.evidence.length === 0 ||
+      shouldAbstain(retrieved, query, { minVectorSimilarity, minTermCoverage })
+    ) {
       return {
         conversationId: exchange.conversationId,
-        events: () => this.abstentionEvents(exchange, evidence.length),
+        events: () => this.abstentionEvents(exchange, retrieved.length),
       };
     }
 
     const fragments = this.generation
-      .streamGroundedAnswer(
-        { question: exchange.question, evidence, history },
-        { signal },
-      )
+      .streamGroundedAnswer(fitted, { signal })
       [Symbol.asyncIterator]();
     const first = await fragments.next();
     return {
       conversationId: exchange.conversationId,
-      events: () => this.answerEvents(exchange, evidence, first, fragments),
+      events: () =>
+        this.answerEvents(exchange, fitted.evidence, first, fragments),
     };
   }
 
@@ -103,7 +134,7 @@ export class ChatService {
       status: 'abstained',
       citations: [],
     });
-    this.logResult(exchange, evidenceCount, true, 0, 0);
+    this.logResult(exchange, evidenceCount, 'abstained', 0, 0);
     yield {
       event: 'done',
       data: {
@@ -119,7 +150,7 @@ export class ChatService {
 
   private async *answerEvents(
     exchange: Exchange,
-    evidence: RetrievedChunk[],
+    evidence: readonly RetrievedChunk[],
     first: IteratorResult<string>,
     fragments: AsyncIterator<string>,
   ): AsyncGenerator<ChatStreamEvent> {
@@ -146,7 +177,7 @@ export class ChatService {
 
   private async finish(
     exchange: Exchange,
-    evidence: RetrievedChunk[],
+    evidence: readonly RetrievedChunk[],
     rawAnswer: string,
   ): Promise<ChatDoneEvent> {
     const used = extractCitationNumbers(rawAnswer);
@@ -158,35 +189,37 @@ export class ChatService {
     const valid = new Set(citations.map((citation) => citation.ordinal));
     const invalidCitations = used.filter((n) => !valid.has(n));
     const answer = filterCitationNumbers(rawAnswer, (n) => valid.has(n)).trim();
+    const status: MessageStatus =
+      citations.length > 0 ? 'complete' : 'unsupported';
 
     const messageId = await this.conversations.saveExchange({
       ...exchange,
       answer,
-      status: 'complete',
+      status,
       citations,
     });
     this.logResult(
       exchange,
       evidence.length,
-      false,
+      status,
       citations.length,
       invalidCitations.length,
     );
     return {
       messageId,
       answer,
-      status: 'complete',
+      status,
       citations,
       invalidCitations,
-      suggestions: [],
+      suggestions: status === 'unsupported' ? [...UNSUPPORTED_SUGGESTIONS] : [],
     };
   }
 
-  // Counts and timing only: questions and answers can hold source code.
+  // Counts and timing only: questions, rewritten queries, and answers can hold source code.
   private logResult(
     exchange: Exchange,
     evidence: number,
-    abstained: boolean,
+    status: MessageStatus,
     validCitations: number,
     invalidCitations: number,
   ): void {
@@ -194,7 +227,7 @@ export class ChatService {
       Number(process.hrtime.bigint() - exchange.started) / 1e6,
     );
     this.logger.log(
-      `chat conversation=${exchange.conversationId} sources=${exchange.sourceIds.length} evidence=${evidence} abstained=${abstained} citations=${validCitations} invalidCitations=${invalidCitations} ${durationMs}ms`,
+      `chat conversation=${exchange.conversationId} sources=${exchange.sourceIds.length} rewritten=${exchange.rewritten} evidence=${evidence} dropped=${exchange.droppedEvidence} status=${status} citations=${validCitations} invalidCitations=${invalidCitations} ${durationMs}ms`,
     );
   }
 }

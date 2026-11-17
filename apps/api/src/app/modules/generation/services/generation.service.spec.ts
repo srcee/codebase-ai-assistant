@@ -71,4 +71,74 @@ describe('GenerationService', () => {
     expect(sent[1].content).toBe(history[1].question);
     expect(sent[3].content).toContain(evidence[1].content);
   });
+
+  it('fits evidence to the configured context window', () => {
+    const service = new GenerationService(
+      { complete: jest.fn(), stream: jest.fn() },
+      testConfig({
+        CHAT_CONTEXT_TOKENS: '2048',
+        CHAT_MAX_ANSWER_TOKENS: '1024',
+      }),
+    );
+    const evidence = searchCandidateFactory.buildList(3, {
+      content: faker.string.alpha(1000),
+    });
+
+    const fitted = service.fitGroundedInput({
+      question: faker.lorem.sentence(),
+      evidence,
+      history: [],
+    });
+
+    expect(fitted.evidence).toEqual(evidence.slice(0, 1));
+  });
+
+  describe('rewriteFollowUp', () => {
+    const history = [
+      { question: faker.lorem.sentence(), answer: faker.lorem.sentence() },
+    ];
+
+    it('asks the chat port for a standalone query', async () => {
+      const port: ChatPort = {
+        complete: jest.fn(async () => 'Query: where is retryLimit tested\n'),
+        stream: jest.fn(),
+      };
+      const service = new GenerationService(port, testConfig());
+      const signal = new AbortController().signal;
+      const question = faker.lorem.sentence();
+
+      await expect(
+        service.rewriteFollowUp({ question, history }, { signal }),
+      ).resolves.toBe('where is retryLimit tested');
+      const [sent, options] = jest.mocked(port.complete).mock.calls[0];
+      expect(options).toEqual({ signal });
+      expect(sent[0].role).toBe('system');
+      expect(sent[1].content).toContain(history[0].question);
+      expect(sent[1].content.trimEnd().endsWith(question)).toBe(true);
+    });
+
+    it('keeps the question without calling the model when there is no history', async () => {
+      const port: ChatPort = { complete: jest.fn(), stream: jest.fn() };
+      const service = new GenerationService(port, testConfig());
+      const question = faker.lorem.sentence();
+
+      await expect(
+        service.rewriteFollowUp({ question, history: [] }),
+      ).resolves.toBe(question);
+      expect(port.complete).not.toHaveBeenCalled();
+    });
+
+    it('keeps the question when the model returns nothing usable', async () => {
+      const port: ChatPort = {
+        complete: jest.fn(async () => '  \n'),
+        stream: jest.fn(),
+      };
+      const service = new GenerationService(port, testConfig());
+      const question = faker.lorem.sentence();
+
+      await expect(
+        service.rewriteFollowUp({ question, history }),
+      ).resolves.toBe(question);
+    });
+  });
 });

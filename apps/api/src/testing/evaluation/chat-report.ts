@@ -10,8 +10,13 @@ export interface ChatEvalReport {
   chatModel: string;
   config: EvalConfigSnapshot & {
     minVectorSimilarity: number;
+    minTermCoverage: number;
     maxChunks: number;
     maxContextChars: number;
+    contextTokens: number;
+    maxAnswerTokens: number;
+    temperature: number;
+    rewriteFollowUps: boolean;
   };
   summary: ChatSummary;
   answers: ChatAnswerScore[];
@@ -31,7 +36,13 @@ const excerpt = (answer: string): string => {
 };
 
 const outcome = (score: ChatAnswerScore): string =>
-  score.abstained ? 'abstained' : score.declined ? 'declined' : 'answered';
+  score.abstained
+    ? 'abstained'
+    : score.declined
+      ? 'declined'
+      : score.unsupported
+        ? 'unsupported'
+        : 'answered';
 
 export function renderChatReportMarkdown(report: ChatEvalReport): string {
   const { summary, config } = report;
@@ -47,9 +58,10 @@ export function renderChatReportMarkdown(report: ChatEvalReport): string {
     `| Citation validity | ${percent(summary.citationValidity)} |`,
     `| Answerable: answered with a valid citation | ${percent(summary.answeredWithCitation)} |`,
     `| Answerable: cited an expected location | ${percent(summary.expectedCited)} |`,
-    `| Answerable: abstained or declined | ${percent(summary.falseAbstention)} |`,
-    `| Unanswerable: abstained or declined | ${percent(summary.abstentionRecall)} |`,
+    `| Answerable: abstained, declined, or unsupported | ${percent(summary.falseAbstention)} |`,
+    `| Unanswerable: abstained, declined, or unsupported | ${percent(summary.abstentionRecall)} |`,
     `| Unanswerable: abstained by the server | ${percent(summary.serverAbstentionRecall)} |`,
+    `| Follow-ups (${summary.followUps}): cited an expected location | ${percent(summary.followUpExpectedCited)} |`,
     `| Latency p50 / p95 | ${millis(summary.latencyP50Ms)} / ${millis(summary.latencyP95Ms)} |`,
     '',
     '## Groundedness review',
@@ -66,8 +78,9 @@ export function renderChatReportMarkdown(report: ChatEvalReport): string {
     '## Configuration',
     '',
     `- Embedding identity: ${config.embeddingIdentity}`,
-    `- Abstain below vector similarity ${config.minVectorSimilarity} without a lexical match`,
+    `- Abstain below vector similarity ${config.minVectorSimilarity} unless a lexical match covers ${config.minTermCoverage} of the query terms`,
     `- Evidence: up to ${config.maxChunks} chunks and ${config.maxContextChars} characters; candidates ${config.candidateLimit}, RRF k ${config.rrfK}`,
+    `- Model: context ${config.contextTokens} tokens, answer up to ${config.maxAnswerTokens} tokens, temperature ${config.temperature}, follow-up rewrite ${config.rewriteFollowUps ? 'on' : 'off'}`,
     `- Chunks: up to ${config.chunkMaxChars} characters, chunking version ${config.chunkingVersion}`,
     '',
   ].join('\n');

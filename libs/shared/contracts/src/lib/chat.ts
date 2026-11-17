@@ -10,7 +10,8 @@ export interface ChatRequest {
 }
 
 export type MessageRole = 'user' | 'assistant';
-export type MessageStatus = 'complete' | 'abstained';
+/** `unsupported`: the model answered but cited no evidence that validated. */
+export type MessageStatus = 'complete' | 'abstained' | 'unsupported';
 
 export interface Citation {
   /** The `[n]` used in the answer text. */
@@ -63,7 +64,7 @@ export interface ChatDoneEvent {
   citations: Citation[];
   /** Citation numbers the model used that did not match retrieved evidence. */
   invalidCitations: number[];
-  /** Next steps, set when the answer abstained. */
+  /** Next steps, set when the answer abstained or is unsupported. */
   suggestions: string[];
 }
 

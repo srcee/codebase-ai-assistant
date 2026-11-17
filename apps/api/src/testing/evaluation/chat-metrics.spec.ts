@@ -57,6 +57,29 @@ describe('scoreChatAnswer', () => {
       declined: true,
     });
   });
+
+  it('marks unsupported answers and follow-ups', () => {
+    const done = chatDoneEventFactory.build({
+      status: 'unsupported',
+      citations: [],
+    });
+
+    expect(
+      scoreChatAnswer(
+        {
+          id: 'f',
+          expected: [expectedLocationFactory.build()],
+          followUp: true,
+        },
+        done,
+        1,
+      ),
+    ).toMatchObject({
+      unsupported: true,
+      followUp: true,
+      citedExpected: false,
+    });
+  });
 });
 
 describe('summarizeChat', () => {
@@ -94,6 +117,28 @@ describe('summarizeChat', () => {
       abstentionRecall: 0.5,
       serverAbstentionRecall: 0.5,
       falseAbstention: 0.5,
+    });
+  });
+
+  it('counts unsupported answers as refusals and scores follow-ups apart', () => {
+    const summary = summarizeChat([
+      chatAnswerScoreFactory.build({ unsupported: true, validCitations: 0 }),
+      chatAnswerScoreFactory.build({
+        answerable: false,
+        unsupported: true,
+        validCitations: 0,
+      }),
+      chatAnswerScoreFactory.build({ followUp: true, citedExpected: true }),
+      chatAnswerScoreFactory.build({ followUp: true, citedExpected: false }),
+    ]);
+
+    expect(summary).toMatchObject({
+      answerable: 1,
+      unanswerable: 1,
+      falseAbstention: 1,
+      abstentionRecall: 1,
+      followUps: 2,
+      followUpExpectedCited: 0.5,
     });
   });
 
