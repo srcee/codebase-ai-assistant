@@ -1,5 +1,4 @@
 import {
-  ConflictException,
   Inject,
   Injectable,
   Logger,
@@ -10,16 +9,18 @@ import { and, asc, desc, eq, inArray, type SQL, sql } from 'drizzle-orm';
 import type {
   IndexedFileIssue,
   LatestIndexJobResponse,
+  SourceKind,
 } from '@codebase-ai/contracts';
 import { APP_CONFIG, type AppConfig } from '@codebase-ai/server-config';
 import { DatabaseService, schema } from '@codebase-ai/server-database';
+import { NO_JOB_YET, SOURCE_NOT_FOUND } from '../constants/job-messages';
 import { toIndexJobResponse } from '../mappers/to-index-job-response';
 import type { IndexJobCounters } from '../types/index-job-counters';
 
 const { indexJobs, sources, sourceFiles } = schema;
 
-const codebaseWithId = (id: string) =>
-  and(eq(sources.id, id), eq(sources.kind, 'code_repository'));
+const sourceWithId = (id: string, kind?: SourceKind) =>
+  kind ? and(eq(sources.id, id), eq(sources.kind, kind)) : eq(sources.id, id);
 
 type IndexJobRow = typeof indexJobs.$inferSelect;
 
@@ -27,12 +28,18 @@ const ACTIVE_STATUSES = ['queued', 'running'];
 const MAX_ISSUES = 500;
 const INTERRUPTED_SUMMARY = 'Interrupted by an API restart.';
 
-export interface CreatedIndexJob {
-  job: IndexJobRow;
+export interface IndexSource {
+  id: string;
+  kind: SourceKind;
   canonicalPath: string;
 }
 
-/** Index job rows and the repository status that mirrors them. */
+export interface CreatedIndexJob {
+  job: IndexJobRow;
+  source: IndexSource;
+}
+
+/** Index job rows and the source status that mirrors them. */
 @Injectable()
 export class IndexJobsService implements OnApplicationBootstrap {
   private readonly logger = new Logger(IndexJobsService.name);
@@ -76,31 +83,53 @@ export class IndexJobsService implements OnApplicationBootstrap {
     });
   }
 
-  async create(repositoryId: string): Promise<CreatedIndexJob> {
+  /** Queues a job for the source; undefined when it already has an active one. Without `kind`, any source matches. */
+  async create(
+    sourceId: string,
+    kind?: SourceKind,
+  ): Promise<CreatedIndexJob | undefined> {
     return this.database.db.transaction(async (tx) => {
-      const [repository] = await tx
-        .select({ canonicalPath: sources.canonicalPath })
+      const [source] = await tx
+        .select({
+          id: sources.id,
+          kind: sources.kind,
+          canonicalPath: sources.canonicalPath,
+        })
         .from(sources)
-        .where(codebaseWithId(repositoryId));
-      if (!repository) throw new NotFoundException('Codebase not found.');
+        .where(sourceWithId(sourceId, kind));
+      if (!source) {
+        throw new NotFoundException(
+          kind ? SOURCE_NOT_FOUND[kind] : 'Source not found.',
+        );
+      }
 
       // The partial unique index allows one queued or running job per source.
       const [job] = await tx
         .insert(indexJobs)
-        .values({ sourceId: repositoryId })
+        .values({ sourceId })
         .onConflictDoNothing()
         .returning();
-      if (!job) {
-        throw new ConflictException(
-          'An index job is already active for this codebase.',
-        );
-      }
+      if (!job) return undefined;
       await tx
         .update(sources)
         .set({ status: 'indexing' })
-        .where(eq(sources.id, repositoryId));
-      return { job, canonicalPath: repository.canonicalPath };
+        .where(eq(sources.id, sourceId));
+      return { job, source: source as IndexSource };
     });
+  }
+
+  async activeJob(sourceId: string): Promise<IndexJobRow | undefined> {
+    const [job] = await this.database.db
+      .select()
+      .from(indexJobs)
+      .where(
+        and(
+          eq(indexJobs.sourceId, sourceId),
+          inArray(indexJobs.status, ACTIVE_STATUSES),
+        ),
+      )
+      .limit(1);
+    return job;
   }
 
   async markRunning(jobId: string): Promise<void> {
@@ -128,7 +157,7 @@ export class IndexJobsService implements OnApplicationBootstrap {
 
   async finish(
     jobId: string,
-    repositoryId: string,
+    sourceId: string,
     outcome: { status: 'succeeded' } | { status: 'failed'; summary: string },
   ): Promise<void> {
     await this.database.db.transaction(async (tx) => {
@@ -143,27 +172,34 @@ export class IndexJobsService implements OnApplicationBootstrap {
       await tx
         .update(sources)
         .set({ status: outcome.status === 'succeeded' ? 'ready' : 'failed' })
-        .where(eq(sources.id, repositoryId));
+        .where(eq(sources.id, sourceId));
     });
   }
 
-  async repositoryExists(repositoryId: string): Promise<boolean> {
+  async sourceExists(sourceId: string): Promise<boolean> {
     const [row] = await this.database.db
       .select({ id: sources.id })
       .from(sources)
-      .where(codebaseWithId(repositoryId));
+      .where(sourceWithId(sourceId));
     return Boolean(row);
   }
 
-  async latest(repositoryId: string): Promise<LatestIndexJobResponse> {
+  async latest(
+    sourceId: string,
+    kind: SourceKind,
+  ): Promise<LatestIndexJobResponse> {
     const db = this.database.db;
-    const [job] = await db
-      .select()
+    const [row] = await db
+      .select({ job: indexJobs })
       .from(indexJobs)
-      .where(eq(indexJobs.sourceId, repositoryId))
+      .innerJoin(
+        sources,
+        and(eq(sources.id, indexJobs.sourceId), eq(sources.kind, kind)),
+      )
+      .where(eq(indexJobs.sourceId, sourceId))
       .orderBy(desc(indexJobs.createdAt))
       .limit(1);
-    if (!job) throw new NotFoundException('No index job for this codebase.');
+    if (!row) throw new NotFoundException(NO_JOB_YET[kind]);
 
     const issues = await db
       .select({
@@ -174,14 +210,14 @@ export class IndexJobsService implements OnApplicationBootstrap {
       .from(sourceFiles)
       .where(
         and(
-          eq(sourceFiles.sourceId, repositoryId),
+          eq(sourceFiles.sourceId, sourceId),
           inArray(sourceFiles.status, ['skipped', 'failed']),
         ),
       )
       .orderBy(asc(sourceFiles.relativePath))
       .limit(MAX_ISSUES);
     return {
-      job: toIndexJobResponse(job),
+      job: toIndexJobResponse(row.job),
       issues: issues as IndexedFileIssue[],
     };
   }

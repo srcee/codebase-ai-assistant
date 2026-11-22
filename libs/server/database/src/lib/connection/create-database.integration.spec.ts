@@ -1,5 +1,9 @@
 import { sql } from 'drizzle-orm';
-import { describeWithDatabase, prepareDedicatedDatabase } from '../../testing';
+import {
+  DATABASE_SETUP_TIMEOUT_MS,
+  describeWithDatabase,
+  prepareDedicatedDatabase,
+} from '../../testing';
 import { createDatabase, type DatabaseHandle } from './create-database';
 import { isStatementTimeoutError } from './is-statement-timeout-error';
 
@@ -15,7 +19,7 @@ describeWithDatabase('database pool settings', (baseUrl) => {
       idleTimeoutMs: 1000,
       statementTimeoutMs: 250,
     });
-  });
+  }, DATABASE_SETUP_TIMEOUT_MS);
 
   afterAll(async () => {
     await handle?.pool.end();

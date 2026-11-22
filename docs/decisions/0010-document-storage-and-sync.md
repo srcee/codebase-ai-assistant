@@ -1,6 +1,6 @@
 # 0010: Document storage and sync
 
-Status: proposed (Stage 10)
+Status: accepted for folder collections (Stage 10, CAA-19); uploads follow in CAA-20
 
 ## Context
 
@@ -16,6 +16,7 @@ Documents change: specs get edited, permission matrices get new rows, design exp
 - **Check for changes.** `GET /document-collections/:id/changes` walks and hashes without parsing or embedding and returns counts of new, changed, and removed files, so the UI can show that a sync is needed.
 - **Project-level sync** starts one job per source in the project. Sources that already have an active job are reported, not queued twice.
 - **Basic limits now.** `DOCUMENT_MAX_BYTES` caps one file (upload or folder) and `UPLOAD_MAX_FILES` caps one request. Oversized files are skipped with a reason. Further hardening is in Stage 19.
+- **Folder sync details** (CAA-19). Folders are walked with the exclusion rules of code ingestion (secret filenames, built-in and custom exclusions, `.gitignore`). A file skipped for its content after hashing (`binary`, `invalid-encoding`, `secret-content`) keeps its hash and index identity, so it is not parsed again while unchanged; a failed file is tried again on every sync. `GET /changes` counts as `new` the indexable files without a row, as `changed` those the indexer would not treat as unchanged, and as `removed` the indexed files that are gone or now excluded. `POST /projects/:id/sync` answers `{ started, alreadyActive }`.
 
 ## Consequences
 

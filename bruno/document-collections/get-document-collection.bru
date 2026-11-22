@@ -1,0 +1,15 @@
+meta {
+  name: Get document collection
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/document-collections/{{collectionId}}
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+}

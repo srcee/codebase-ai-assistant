@@ -3,7 +3,9 @@ import {
   resultLocationFactory,
 } from '../factories/eval.factory';
 import {
+  hitsTarget,
   isHit,
+  linesTarget,
   percentile,
   recallAtK,
   reciprocalRank,
@@ -16,6 +18,7 @@ const expected = expectedLocationFactory.build({
   startLine: 20,
   endLine: 30,
 });
+const target = linesTarget(expected);
 const linesAt = (relativePath: string, startLine: number, endLine: number) =>
   resultLocationFactory.build({
     relativePath,
@@ -62,46 +65,111 @@ describe('isHit', () => {
   });
 });
 
-describe('recallAtK', () => {
-  const second = expectedLocationFactory.build({
-    path: 'src/b.ts',
-    startLine: 1,
-    endLine: 5,
+describe('hitsTarget', () => {
+  const section = {
+    path: 'docs/roles.md',
+    locator: { kind: 'section' as const, headingPath: ['Roles', 'Reviewer'] },
+  };
+
+  it('hits the same section of the same document', () => {
+    expect(
+      hitsTarget(
+        { relativePath: 'docs/roles.md', locator: section.locator },
+        section,
+      ),
+    ).toBe(true);
   });
+
+  it('misses another section or another document', () => {
+    expect(
+      hitsTarget(
+        {
+          relativePath: 'docs/roles.md',
+          locator: { kind: 'section', headingPath: ['Roles'] },
+        },
+        section,
+      ),
+    ).toBe(false);
+    expect(
+      hitsTarget(
+        { relativePath: 'docs/other.md', locator: section.locator },
+        section,
+      ),
+    ).toBe(false);
+  });
+
+  it('hits table rows whose range overlaps the expected rows', () => {
+    const rows = {
+      path: 'docs/permissions.md',
+      locator: {
+        kind: 'table_rows' as const,
+        tableIndex: 1,
+        rowStart: 4,
+        rowEnd: 4,
+        columns: [],
+      },
+    };
+    expect(
+      hitsTarget(
+        {
+          relativePath: 'docs/permissions.md',
+          locator: { ...rows.locator, rowStart: 2, rowEnd: 6 },
+        },
+        rows,
+      ),
+    ).toBe(true);
+    expect(
+      hitsTarget(
+        {
+          relativePath: 'docs/permissions.md',
+          locator: { ...rows.locator, tableIndex: 2, rowStart: 2, rowEnd: 6 },
+        },
+        rows,
+      ),
+    ).toBe(false);
+  });
+});
+
+describe('recallAtK', () => {
+  const second = linesTarget(
+    expectedLocationFactory.build({
+      path: 'src/b.ts',
+      startLine: 1,
+      endLine: 5,
+    }),
+  );
   const secondHit = linesAt('src/b.ts', 1, 9);
 
   it('is the fraction of expected locations found', () => {
-    expect(recallAtK([hit, miss()], [expected, second], 10)).toBe(0.5);
-    expect(recallAtK([hit, secondHit], [expected, second], 10)).toBe(1);
+    expect(recallAtK([hit, miss()], [target, second], 10)).toBe(0.5);
+    expect(recallAtK([hit, secondHit], [target, second], 10)).toBe(1);
   });
 
   it('only looks at the top k results', () => {
     const results = [...Array.from({ length: 5 }, miss), hit];
-    expect(recallAtK(results, [expected], 5)).toBe(0);
-    expect(recallAtK(results, [expected], 10)).toBe(1);
+    expect(recallAtK(results, [target], 5)).toBe(0);
+    expect(recallAtK(results, [target], 10)).toBe(1);
   });
 
   it('counts a location once however many results hit it', () => {
-    expect(recallAtK([hit, hit], [expected, second], 10)).toBe(0.5);
+    expect(recallAtK([hit, hit], [target, second], 10)).toBe(0.5);
   });
 
   it('is zero without results', () => {
-    expect(recallAtK([], [expected], 10)).toBe(0);
+    expect(recallAtK([], [target], 10)).toBe(0);
   });
 });
 
 describe('reciprocalRank', () => {
   it('is one over the rank of the first hit', () => {
-    expect(reciprocalRank([hit], [expected])).toBe(1);
-    expect(reciprocalRank([miss(), miss(), hit], [expected])).toBeCloseTo(
-      1 / 3,
-    );
+    expect(reciprocalRank([hit], [target])).toBe(1);
+    expect(reciprocalRank([miss(), miss(), hit], [target])).toBeCloseTo(1 / 3);
   });
 
   it('is zero without a hit or beyond the cutoff', () => {
-    expect(reciprocalRank([miss()], [expected])).toBe(0);
+    expect(reciprocalRank([miss()], [target])).toBe(0);
     expect(
-      reciprocalRank([...Array.from({ length: 10 }, miss), hit], [expected]),
+      reciprocalRank([...Array.from({ length: 10 }, miss), hit], [target]),
     ).toBe(0);
   });
 });
@@ -110,7 +178,7 @@ describe('scoreQuestion', () => {
   it('combines the metrics for one question', () => {
     expect(
       scoreQuestion(
-        { id: 'q-1', category: 'identifier', expected: [expected] },
+        { id: 'q-1', category: 'identifier', targets: [target] },
         [miss(), hit],
         12,
       ),

@@ -2,7 +2,7 @@ export type IndexJobStatus = 'queued' | 'running' | 'succeeded' | 'failed';
 
 export interface IndexJobResponse {
   id: string;
-  codebaseId: string;
+  sourceId: string;
   status: IndexJobStatus;
   filesDiscovered: number;
   filesIndexed: number;

@@ -18,6 +18,8 @@ import { AuthModule } from './modules/auth/auth.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { HealthModule } from './modules/health/health.module';
 import { CodebasesModule } from './modules/codebases/codebases.module';
+import { DocumentCollectionsModule } from './modules/document-collections/document-collections.module';
+import { DocumentIngestionModule } from './modules/document-ingestion/document-ingestion.module';
 import { EmbeddingsModule } from './modules/embeddings/embeddings.module';
 import { GenerationModule } from './modules/generation/generation.module';
 import { IndexingModule } from './modules/indexing/indexing.module';
@@ -37,6 +39,8 @@ import { RetrievalModule } from './modules/retrieval/retrieval.module';
     HealthModule,
     CodebasesModule,
     IngestionModule,
+    DocumentCollectionsModule,
+    DocumentIngestionModule,
     IndexingModule,
     ProjectsModule,
     RetrievalModule,

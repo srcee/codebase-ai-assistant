@@ -1,0 +1,148 @@
+{
+  "label": "documents-stage10",
+  "generatedAt": "2026-11-22T20:49:22.314Z",
+  "questionSetVersion": 1,
+  "questionCount": 34,
+  "config": {
+    "embeddingIdentity": "ollama/nomic-embed-text",
+    "embeddingQueryPrefix": "",
+    "embeddingDocumentPrefix": "",
+    "chunkMaxChars": 2000,
+    "chunkOverlapChars": 200,
+    "chunkingVersion": "markdown-1, text-1",
+    "candidateLimit": 40,
+    "rrfK": 60,
+    "hnswEfSearch": 100
+  },
+  "indexing": {
+    "filesDiscovered": 12,
+    "filesIndexed": 12,
+    "filesSkipped": 0,
+    "filesFailed": 0,
+    "chunksWritten": 42,
+    "durationMs": 2067,
+    "coverage": 1
+  },
+  "modes": {
+    "vector": {
+      "recallAt5": 0.8823529411764706,
+      "recallAt10": 0.9705882352941176,
+      "mrrAt10": 0.6990196078431372,
+      "latencyP50Ms": 34.01430000000073,
+      "latencyP95Ms": 39.36819999999898,
+      "byCategory": {
+        "role-permission": {
+          "questions": 6,
+          "recallAt10": 1,
+          "mrrAt10": 0.41944444444444445
+        },
+        "table-row": {
+          "questions": 5,
+          "recallAt10": 0.8,
+          "mrrAt10": 0.39
+        },
+        "workflow": {
+          "questions": 8,
+          "recallAt10": 1,
+          "mrrAt10": 0.9375
+        },
+        "glossary": {
+          "questions": 4,
+          "recallAt10": 1,
+          "mrrAt10": 0.2
+        },
+        "exact-term": {
+          "questions": 5,
+          "recallAt10": 1,
+          "mrrAt10": 1
+        },
+        "paraphrase": {
+          "questions": 6,
+          "recallAt10": 1,
+          "mrrAt10": 1
+        }
+      },
+      "incomplete": ["table-row-02"]
+    },
+    "lexical": {
+      "recallAt5": 0.8235294117647058,
+      "recallAt10": 0.9705882352941176,
+      "mrrAt10": 0.6530812324929972,
+      "latencyP50Ms": 4.714200000000346,
+      "latencyP95Ms": 6.43789999999899,
+      "byCategory": {
+        "role-permission": {
+          "questions": 6,
+          "recallAt10": 1,
+          "mrrAt10": 0.425
+        },
+        "table-row": {
+          "questions": 5,
+          "recallAt10": 1,
+          "mrrAt10": 0.6571428571428571
+        },
+        "workflow": {
+          "questions": 8,
+          "recallAt10": 1,
+          "mrrAt10": 0.8229166666666666
+        },
+        "glossary": {
+          "questions": 4,
+          "recallAt10": 1,
+          "mrrAt10": 0.23809523809523808
+        },
+        "exact-term": {
+          "questions": 5,
+          "recallAt10": 1,
+          "mrrAt10": 1
+        },
+        "paraphrase": {
+          "questions": 6,
+          "recallAt10": 0.8333333333333334,
+          "mrrAt10": 0.6388888888888888
+        }
+      },
+      "incomplete": ["paraphrase-04"]
+    },
+    "hybrid": {
+      "recallAt5": 0.8529411764705882,
+      "recallAt10": 0.9705882352941176,
+      "mrrAt10": 0.6922735760971055,
+      "latencyP50Ms": 35.916699999999764,
+      "latencyP95Ms": 43.57880000000114,
+      "byCategory": {
+        "role-permission": {
+          "questions": 6,
+          "recallAt10": 1,
+          "mrrAt10": 0.412962962962963
+        },
+        "table-row": {
+          "questions": 5,
+          "recallAt10": 0.8,
+          "mrrAt10": 0.6333333333333334
+        },
+        "workflow": {
+          "questions": 8,
+          "recallAt10": 1,
+          "mrrAt10": 0.875
+        },
+        "glossary": {
+          "questions": 4,
+          "recallAt10": 1,
+          "mrrAt10": 0.306547619047619
+        },
+        "exact-term": {
+          "questions": 5,
+          "recallAt10": 1,
+          "mrrAt10": 1
+        },
+        "paraphrase": {
+          "questions": 6,
+          "recallAt10": 1,
+          "mrrAt10": 0.7777777777777777
+        }
+      },
+      "incomplete": ["table-row-02"]
+    }
+  }
+}

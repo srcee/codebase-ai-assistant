@@ -1,4 +1,6 @@
 import { PathRejectedError } from '../../codebases/errors/path-rejected.error';
+import { CollectionRootChangedError } from '../../document-ingestion/errors/collection-root-changed.error';
+import { ParseCancelledError } from '../../document-ingestion/errors/parse-cancelled.error';
 import { EmbeddingDimensionMismatchError } from '../../embeddings/errors/embedding-dimension-mismatch.error';
 import { InferenceModelNotFoundError } from '../../inference/errors/inference-model-not-found.error';
 import { InferenceRequestRejectedError } from '../../inference/errors/inference-request-rejected.error';
@@ -12,6 +14,8 @@ const SAFE_MESSAGE_ERRORS = [
   InferenceRequestRejectedError,
   EmbeddingDimensionMismatchError,
   RepositoryRootChangedError,
+  CollectionRootChangedError,
+  ParseCancelledError,
   PathRejectedError,
 ];
 

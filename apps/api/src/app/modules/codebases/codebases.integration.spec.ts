@@ -5,6 +5,7 @@ import type { CodebaseResponse } from '@codebase-ai/contracts';
 import { type DatabaseHandle, schema } from '@codebase-ai/server-database';
 import {
   chunkFactory,
+  DATABASE_SETUP_TIMEOUT_MS,
   describeWithDatabase,
   indexJobFactory,
   prepareDedicatedDatabase,
@@ -59,7 +60,7 @@ describeWithDatabase('codebases API', (baseUrl) => {
         ALLOWED_REPO_ROOTS: box.root,
       }),
     });
-  });
+  }, DATABASE_SETUP_TIMEOUT_MS);
 
   afterEach(async () => {
     jest.restoreAllMocks();

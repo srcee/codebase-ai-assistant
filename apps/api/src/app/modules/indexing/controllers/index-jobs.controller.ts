@@ -24,13 +24,13 @@ export class IndexJobsController {
   @Post('index')
   @HttpCode(HttpStatus.ACCEPTED)
   start(@Param('id', ParseUUIDPipe) id: string): Promise<IndexJobResponse> {
-    return this.runner.start(id);
+    return this.runner.start(id, 'code_repository');
   }
 
   @Get('index-jobs/latest')
   latest(
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<LatestIndexJobResponse> {
-    return this.jobs.latest(id);
+    return this.jobs.latest(id, 'code_repository');
   }
 }

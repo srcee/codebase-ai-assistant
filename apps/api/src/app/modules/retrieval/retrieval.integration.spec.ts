@@ -5,6 +5,7 @@ import { type DatabaseHandle, schema } from '@codebase-ai/server-database';
 import {
   axisVector,
   chunkFactory,
+  DATABASE_SETUP_TIMEOUT_MS,
   describeWithDatabase,
   prepareDedicatedDatabase,
   projectFactory,
@@ -121,7 +122,7 @@ describeWithDatabase('hybrid retrieval', (baseUrl) => {
     retrieval = app.get(RetrievalService, { strict: false });
     projectScope = app.get(ProjectScopeService, { strict: false });
     identity = app.get(EmbeddingsService, { strict: false }).identity;
-  });
+  }, DATABASE_SETUP_TIMEOUT_MS);
 
   afterEach(async () => {
     await handle.db.delete(projects);

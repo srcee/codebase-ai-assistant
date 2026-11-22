@@ -1,3 +1,5 @@
+import type { IndexJobResponse } from './index-jobs';
+
 export interface CreateProjectRequest {
   name: string;
   description?: string | null;
@@ -19,4 +21,10 @@ export interface ProjectResponse {
   sourceIds: string[];
   createdAt: string;
   updatedAt: string;
+}
+
+/** One job per source of the project; a source that already has an active job is reported, not queued again. */
+export interface ProjectSyncResponse {
+  started: IndexJobResponse[];
+  alreadyActive: IndexJobResponse[];
 }

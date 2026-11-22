@@ -1,0 +1,27 @@
+meta {
+  name: Register document collection
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/document-collections
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "Product documentation",
+    "origin": "folder",
+    "path": "{{documentsPath}}"
+  }
+}
+
+vars:post-response {
+  collectionId: res.body.id
+}
+
+assert {
+  res.status: eq 201
+}

@@ -2,6 +2,7 @@ import { lstat, realpath, stat } from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { Inject, Injectable } from '@nestjs/common';
+import type { SourceKind } from '@codebase-ai/contracts';
 import { APP_CONFIG, type AppConfig } from '@codebase-ai/server-config';
 import {
   hasTraversalSegment,
@@ -15,20 +16,27 @@ const realpathNative = promisify(realpath.native);
 const statPath = promisify(stat);
 const lstatPath = promisify(lstat);
 
-export interface ResolvedCodebasePath {
+export interface ResolvedSourcePath {
   canonicalPath: string;
   /** Forward-slash path relative to the matching allowed root. */
   relativePath: string;
 }
 
+/** Code repositories resolve against ALLOWED_REPO_ROOTS, document folders against ALLOWED_DOCUMENT_ROOTS. */
 @Injectable()
 export class PathPolicyService {
   constructor(@Inject(APP_CONFIG) private readonly config: AppConfig) {}
 
   /** Allowed roots that exist, resolved through symlinks; unusable roots are ignored. */
-  async canonicalRoots(): Promise<string[]> {
+  async canonicalRoots(
+    kind: SourceKind = 'code_repository',
+  ): Promise<string[]> {
+    const configured =
+      kind === 'code_repository'
+        ? this.config.allowedRepoRoots
+        : this.config.allowedDocumentRoots;
     const roots = await Promise.all(
-      this.config.allowedRepoRoots.map((root) =>
+      configured.map((root) =>
         isLocalAbsolutePath(root)
           ? this.realPath(root)
           : Promise.resolve(undefined),
@@ -37,31 +45,35 @@ export class PathPolicyService {
     return roots.filter((root): root is string => root !== undefined);
   }
 
-  async resolve(input: string): Promise<ResolvedCodebasePath> {
+  async resolve(
+    input: string,
+    kind: SourceKind = 'code_repository',
+  ): Promise<ResolvedSourcePath> {
     if (!isLocalAbsolutePath(input) || hasTraversalSegment(input)) {
-      throw new PathRejectedError('invalid-path');
+      throw new PathRejectedError('invalid-path', kind);
     }
 
     // realpath resolves every symlink and junction, so containment is checked on the real target.
     const canonicalPath = await this.realPath(input);
-    if (!canonicalPath) throw new PathRejectedError('not-found');
+    if (!canonicalPath) throw new PathRejectedError('not-found', kind);
 
     const relativePath = relativeToAnyRoot(
-      await this.canonicalRoots(),
+      await this.canonicalRoots(kind),
       canonicalPath,
     );
     if (relativePath === null) {
-      throw new PathRejectedError('outside-allowed-roots');
+      throw new PathRejectedError('outside-allowed-roots', kind);
     }
 
     if (!(await this.isDirectory(canonicalPath))) {
-      throw new PathRejectedError('not-a-directory');
+      throw new PathRejectedError('not-a-directory', kind);
     }
     if (
+      kind === 'code_repository' &&
       this.config.requireGitDirectory &&
       !(await this.hasGitDirectory(canonicalPath))
     ) {
-      throw new PathRejectedError('not-a-git-repository');
+      throw new PathRejectedError('not-a-git-repository', kind);
     }
     return { canonicalPath, relativePath };
   }

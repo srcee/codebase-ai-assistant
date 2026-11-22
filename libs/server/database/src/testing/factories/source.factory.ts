@@ -35,3 +35,8 @@ export const sourceFactory = Factory.define<SourceRow, DatabaseTransientParams>(
     };
   },
 );
+
+export const folderCollectionFactory = sourceFactory.params({
+  kind: 'document_collection',
+  origin: 'folder',
+});

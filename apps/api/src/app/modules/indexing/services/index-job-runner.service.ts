@@ -1,15 +1,17 @@
 import {
+  ConflictException,
   Inject,
   Injectable,
   Logger,
   type BeforeApplicationShutdown,
 } from '@nestjs/common';
-import type { IndexJobResponse } from '@codebase-ai/contracts';
+import type { IndexJobResponse, SourceKind } from '@codebase-ai/contracts';
 import { APP_CONFIG, type AppConfig } from '@codebase-ai/server-config';
+import { DocumentDiscoveryService } from '../../document-ingestion/services/document-discovery.service';
 import { EmbeddingsService } from '../../embeddings/services/embeddings.service';
-import { CHUNKING_VERSION } from '../../ingestion/constants/chunking-version';
 import { FileDiscoveryService } from '../../ingestion/services/file-discovery.service';
-import type { DiscoveryEntry } from '../../ingestion/types/discovery-entry';
+import type { SkippedEntry } from '../../ingestion/types/discovery-entry';
+import { JOB_ALREADY_ACTIVE } from '../constants/job-messages';
 import { IndexJobCancelledError } from '../errors/index-job-cancelled.error';
 import { toIndexJobResponse } from '../mappers/to-index-job-response';
 import { runOutsideRequestContext } from '../../../utils/request-context';
@@ -18,8 +20,17 @@ import type { IndexContext } from '../types/index-context';
 import type { IndexJobCounters } from '../types/index-job-counters';
 import { forEachConcurrent } from '../utils/for-each-concurrent';
 import { summarizeIndexError } from '../utils/summarize-index-error';
+import { type WorkItem, workItems } from '../utils/work-items';
+import { DocumentIndexerService } from './document-indexer.service';
 import { FileIndexerService } from './file-indexer.service';
-import { IndexJobsService } from './index-jobs.service';
+import {
+  type CreatedIndexJob,
+  IndexJobsService,
+  type IndexSource,
+} from './index-jobs.service';
+
+// A job that finishes between the conflict and the lookup of the active job is retried this often.
+const SYNC_ATTEMPTS = 3;
 
 const emptyCounters = (): IndexJobCounters => ({
   filesDiscovered: 0,
@@ -46,7 +57,7 @@ function countersFor(outcome: FileOutcome): Partial<IndexJobCounters> {
   }
 }
 
-/** Runs index jobs in the API process; one active job per repository is enforced by the database. */
+/** Runs index jobs in the API process; one active job per source is enforced by the database. */
 @Injectable()
 export class IndexJobRunnerService implements BeforeApplicationShutdown {
   private readonly logger = new Logger(IndexJobRunnerService.name);
@@ -59,28 +70,34 @@ export class IndexJobRunnerService implements BeforeApplicationShutdown {
     @Inject(APP_CONFIG) private readonly config: AppConfig,
     private readonly jobs: IndexJobsService,
     private readonly files: FileIndexerService,
+    private readonly documents: DocumentIndexerService,
     private readonly discovery: FileDiscoveryService,
+    private readonly documentDiscovery: DocumentDiscoveryService,
     private readonly embeddings: EmbeddingsService,
   ) {}
 
-  /** Creates the job and returns at once; progress is read from the job row. */
-  async start(repositoryId: string): Promise<IndexJobResponse> {
-    const { job, canonicalPath } = await this.jobs.create(repositoryId);
-    const controller = new AbortController();
-    this.logger.log(`Index job ${job.id} started repository=${repositoryId}`);
-    // Job lines are identified by job id, not by the request that started it.
-    const done = runOutsideRequestContext(() =>
-      this.run(job.id, repositoryId, canonicalPath, controller)
-        .catch((error: unknown) => {
-          const name = error instanceof Error ? error.name : 'UnknownError';
-          this.logger.error(
-            `Index job ${job.id} could not be finalized: ${name}`,
-          );
-        })
-        .finally(() => this.running.delete(job.id)),
-    );
-    this.running.set(job.id, { controller, done });
-    return toIndexJobResponse(job);
+  /** Creates the job and returns at once; progress is read from the job row. 409 while a job is active. */
+  async start(sourceId: string, kind: SourceKind): Promise<IndexJobResponse> {
+    const created = await this.jobs.create(sourceId, kind);
+    if (!created) throw new ConflictException(JOB_ALREADY_ACTIVE[kind]);
+    return this.launch(created);
+  }
+
+  /** Starts a job for a source of any kind, or reports the job that is already active instead of queueing another. */
+  async trySync(
+    sourceId: string,
+  ): Promise<{ job: IndexJobResponse; alreadyActive: boolean }> {
+    for (let attempt = 1; ; attempt++) {
+      const created = await this.jobs.create(sourceId);
+      if (created) return { job: this.launch(created), alreadyActive: false };
+      const active = await this.jobs.activeJob(sourceId);
+      if (active) {
+        return { job: toIndexJobResponse(active), alreadyActive: true };
+      }
+      if (attempt === SYNC_ATTEMPTS) {
+        throw new ConflictException('An index job is already active.');
+      }
+    }
   }
 
   /** Resolves when every job started by this process has finished. */
@@ -96,18 +113,34 @@ export class IndexJobRunnerService implements BeforeApplicationShutdown {
     await this.whenIdle();
   }
 
+  private launch({ job, source }: CreatedIndexJob): IndexJobResponse {
+    const controller = new AbortController();
+    this.logger.log(`Index job ${job.id} started source=${source.id}`);
+    // Job lines are identified by job id, not by the request that started it.
+    const done = runOutsideRequestContext(() =>
+      this.run(job.id, source, controller)
+        .catch((error: unknown) => {
+          const name = error instanceof Error ? error.name : 'UnknownError';
+          this.logger.error(
+            `Index job ${job.id} could not be finalized: ${name}`,
+          );
+        })
+        .finally(() => this.running.delete(job.id)),
+    );
+    this.running.set(job.id, { controller, done });
+    return toIndexJobResponse(job);
+  }
+
   private async run(
     jobId: string,
-    repositoryId: string,
-    canonicalPath: string,
+    source: IndexSource,
     controller: AbortController,
   ): Promise<void> {
     const started = Date.now();
     const totals = emptyCounters();
     const context: IndexContext = {
-      repositoryId,
+      sourceId: source.id,
       embeddingModel: this.embeddings.identity,
-      chunkingVersion: CHUNKING_VERSION,
       signal: controller.signal,
     };
     const seenPaths = new Set<string>();
@@ -115,19 +148,18 @@ export class IndexJobRunnerService implements BeforeApplicationShutdown {
     try {
       await this.jobs.markRunning(jobId);
       await forEachConcurrent(
-        this.discovery.discover(canonicalPath),
+        this.workItemsFor(source, context),
         this.config.indexing.embedConcurrency,
-        async (entry) => {
-          // Excluded directories are not walked, so they have no file row.
-          if (entry.status === 'skipped' && entry.kind === 'directory') return;
+        async (item) => {
+          if (item.isDirectory) return;
           if (controller.signal.aborted) throw new IndexJobCancelledError();
-          if (!(await this.jobs.repositoryExists(repositoryId))) {
+          if (!(await this.jobs.sourceExists(source.id))) {
             controller.abort();
             throw new IndexJobCancelledError();
           }
-          seenPaths.add(entry.relativePath);
+          seenPaths.add(item.relativePath);
           try {
-            const delta = countersFor(await this.processEntry(context, entry));
+            const delta = countersFor(await item.process());
             for (const [key, value] of Object.entries(delta)) {
               totals[key as keyof IndexJobCounters] += value;
             }
@@ -138,17 +170,17 @@ export class IndexJobRunnerService implements BeforeApplicationShutdown {
           }
         },
       );
-      const removed = await this.files.removeStale(repositoryId, seenPaths);
-      await this.jobs.finish(jobId, repositoryId, { status: 'succeeded' });
+      const removed = await this.files.removeStale(source.id, seenPaths);
+      await this.jobs.finish(jobId, source.id, { status: 'succeeded' });
       this.logger.log(
         `Index job ${jobId} succeeded: ${formatCounters(totals)} removed=${removed} durationMs=${Date.now() - started}`,
       );
     } catch (error) {
-      if (!(await this.jobs.repositoryExists(repositoryId))) {
-        this.logger.log(`Index job ${jobId} cancelled: codebase deleted`);
+      if (!(await this.jobs.sourceExists(source.id))) {
+        this.logger.log(`Index job ${jobId} cancelled: source deleted`);
         return;
       }
-      await this.jobs.finish(jobId, repositoryId, {
+      await this.jobs.finish(jobId, source.id, {
         status: 'failed',
         summary: summarizeIndexError(error),
       });
@@ -159,13 +191,23 @@ export class IndexJobRunnerService implements BeforeApplicationShutdown {
     }
   }
 
-  private processEntry(
+  private workItemsFor(
+    source: IndexSource,
     context: IndexContext,
-    entry: DiscoveryEntry,
-  ): Promise<FileOutcome> {
-    return entry.status === 'included'
-      ? this.files.indexFile(context, entry)
-      : this.files.recordSkipped(context, entry);
+  ): AsyncIterable<WorkItem> {
+    const recordSkipped = (entry: SkippedEntry) =>
+      this.files.recordSkipped(context, entry);
+    return source.kind === 'code_repository'
+      ? workItems(
+          this.discovery.discover(source.canonicalPath),
+          (file) => this.files.indexFile(context, file),
+          recordSkipped,
+        )
+      : workItems(
+          this.documentDiscovery.discover(source.canonicalPath),
+          (file) => this.documents.indexDocument(context, file),
+          recordSkipped,
+        );
   }
 }
 

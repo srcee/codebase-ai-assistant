@@ -24,6 +24,15 @@ describe('PathRejectedError', () => {
     );
   });
 
+  it('names the root that applies to the source kind', () => {
+    expect(new PathRejectedError('outside-allowed-roots').message).toContain(
+      'allowed repository root',
+    );
+    expect(
+      new PathRejectedError('not-found', 'document_collection').message,
+    ).toContain('allowed document root');
+  });
+
   it('never builds the message from a path', () => {
     const path = faker.system.directoryPath();
     for (const reason of REASONS) {

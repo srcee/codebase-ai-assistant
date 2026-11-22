@@ -1,6 +1,3 @@
-import type { Dirent } from 'node:fs';
-import { readdir } from 'node:fs/promises';
-import { join } from 'node:path';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   APP_CONFIG,
@@ -13,26 +10,16 @@ import { UnknownLanguageError } from '../errors/unknown-language.error';
 import { KNOWN_LANGUAGE_IDS } from '../constants/language-lookups';
 import type { DiscoveryEntry, SkippedEntry } from '../types/discovery-entry';
 import type { SkipReason } from '../types/skip-reason';
-import { decodeUtf8 } from '../utils/decode-utf8';
+import type { FoundFile } from '../types/walk-entry';
 import { detectLanguage } from '../utils/detect-language';
-import {
-  createGitignoreLayer,
-  type GitignoreLayer,
-} from '../utils/gitignore-layers';
 import { inspectContent } from '../utils/inspect-content';
 import { readRegularFile } from '../utils/read-regular-file';
 import { sha256Hex } from '../utils/sha256-hex';
-import { ExclusionPolicyService } from './exclusion-policy.service';
-
-const GITIGNORE_MAX_BYTES = 64 * 1024;
+import { DirectoryWalkerService } from './directory-walker.service';
 
 interface WalkState {
-  rootPath: string;
   indexedBytes: number;
 }
-
-const byName = (a: Dirent, b: Dirent): number =>
-  a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
 
 @Injectable()
 export class FileDiscoveryService {
@@ -43,7 +30,7 @@ export class FileDiscoveryService {
   constructor(
     @Inject(APP_CONFIG) config: AppConfig,
     private readonly pathPolicy: PathPolicyService,
-    private readonly exclusions: ExclusionPolicyService,
+    private readonly walker: DirectoryWalkerService,
   ) {
     this.limits = config.ingestion;
     const requested = config.ingestion.languages;
@@ -63,12 +50,17 @@ export class FileDiscoveryService {
       throw new RepositoryRootChangedError();
     }
 
-    const state: WalkState = { rootPath: canonicalPath, indexedBytes: 0 };
+    const state: WalkState = { indexedBytes: 0 };
     const started = Date.now();
     let included = 0;
     let skipped = 0;
     try {
-      for await (const entry of this.walk('', [], state)) {
+      for await (const found of this.walker.walk(
+        canonicalPath,
+        () => new RepositoryRootChangedError(),
+      )) {
+        const entry =
+          found.status === 'found' ? await this.visitFile(found, state) : found;
         if (entry.status === 'included') included++;
         else skipped++;
         yield entry;
@@ -80,63 +72,11 @@ export class FileDiscoveryService {
     }
   }
 
-  private async *walk(
-    relativeDir: string,
-    parentLayers: readonly GitignoreLayer[],
-    state: WalkState,
-  ): AsyncGenerator<DiscoveryEntry> {
-    const directory = this.absolute(state, relativeDir);
-    let entries: Dirent[];
-    try {
-      entries = await readdir(directory, { withFileTypes: true });
-    } catch {
-      if (!relativeDir) throw new RepositoryRootChangedError();
-      yield skipped(relativeDir, 'directory', 'unreadable');
-      return;
-    }
-    entries.sort(byName);
-    const layers = await this.withGitignore(
-      directory,
-      relativeDir,
-      entries,
-      parentLayers,
-    );
-
-    for (const entry of entries) {
-      const relativePath = relativeDir
-        ? `${relativeDir}/${entry.name}`
-        : entry.name;
-
-      if (entry.isSymbolicLink()) {
-        yield skipped(relativePath, 'symlink', 'symlink');
-      } else if (entry.isDirectory()) {
-        const reason = this.exclusions.reasonToExclude(
-          relativePath,
-          true,
-          layers,
-        );
-        if (reason) yield skipped(relativePath, 'directory', reason);
-        else yield* this.walk(relativePath, layers, state);
-      } else if (entry.isFile()) {
-        yield await this.visitFile(relativePath, layers, state);
-      } else {
-        yield skipped(relativePath, 'file', 'unreadable');
-      }
-    }
-  }
-
   private async visitFile(
-    relativePath: string,
-    layers: readonly GitignoreLayer[],
+    file: FoundFile,
     state: WalkState,
   ): Promise<DiscoveryEntry> {
-    const excluded = this.exclusions.reasonToExclude(
-      relativePath,
-      false,
-      layers,
-    );
-    if (excluded) return skipped(relativePath, 'file', excluded);
-
+    const { relativePath } = file;
     const language = detectLanguage(relativePath);
     if (!language || !this.enabledLanguages.has(language)) {
       return skipped(relativePath, 'file', 'unsupported-extension');
@@ -146,7 +86,7 @@ export class FileDiscoveryService {
       return skipped(relativePath, 'file', 'total-size-limit');
     }
     const outcome = await readRegularFile(
-      this.absolute(state, relativePath),
+      file.absolutePath,
       this.limits.maxFileBytes,
     );
     if (outcome.kind !== 'read') {
@@ -171,35 +111,6 @@ export class FileDiscoveryService {
       contentHash: sha256Hex(bytes),
       text: inspection.text,
     };
-  }
-
-  /** .gitignore is a hint only; an unreadable or oversized one is ignored. */
-  private async withGitignore(
-    directory: string,
-    relativeDir: string,
-    entries: readonly Dirent[],
-    parentLayers: readonly GitignoreLayer[],
-  ): Promise<readonly GitignoreLayer[]> {
-    const gitignore = entries.find(
-      (entry) => entry.name === '.gitignore' && entry.isFile(),
-    );
-    if (!gitignore) return parentLayers;
-
-    const outcome = await readRegularFile(
-      join(directory, gitignore.name),
-      GITIGNORE_MAX_BYTES,
-    );
-    const content =
-      outcome.kind === 'read' ? decodeUtf8(outcome.bytes) : undefined;
-    return content === undefined
-      ? parentLayers
-      : [...parentLayers, createGitignoreLayer(relativeDir, content)];
-  }
-
-  private absolute(state: WalkState, relativePath: string): string {
-    return relativePath
-      ? join(state.rootPath, ...relativePath.split('/'))
-      : state.rootPath;
   }
 }
 

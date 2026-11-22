@@ -10,6 +10,7 @@ import type {
 import type { AppConfig } from '@codebase-ai/server-config';
 import { type DatabaseHandle, schema } from '@codebase-ai/server-database';
 import {
+  DATABASE_SETUP_TIMEOUT_MS,
   describeWithDatabase,
   indexJobFactory,
   prepareDedicatedDatabase,
@@ -128,7 +129,7 @@ describeWithDatabase('indexing API', (baseUrl) => {
       config,
       overrides: [{ provide: EMBEDDING_PORT, useValue: { embedBatch } }],
     });
-  });
+  }, DATABASE_SETUP_TIMEOUT_MS);
 
   beforeEach(() => {
     embedBatch.mockReset();
@@ -155,7 +156,7 @@ describeWithDatabase('indexing API', (baseUrl) => {
       const started = (await startIndex(repo.id).expect(202))
         .body as IndexJobResponse;
       expect(started).toMatchObject({
-        codebaseId: repo.id,
+        sourceId: repo.id,
         status: 'queued',
         filesDiscovered: 0,
       });

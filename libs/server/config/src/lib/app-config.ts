@@ -1,3 +1,4 @@
+import { availableParallelism } from 'node:os';
 import { delimiter, resolve } from 'node:path';
 import { z } from 'zod';
 
@@ -28,6 +29,15 @@ const commaList = (value: string): string[] =>
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean);
+
+const pathList = z
+  .string()
+  .default('')
+  .transform((value) => value.split(delimiter).filter(Boolean));
+
+// One core stays free for the API thread.
+const defaultParseWorkers = (): number =>
+  Math.max(1, Math.min(availableParallelism() - 1, 4));
 
 // Prepended as written, so a trailing space must be quoted in the env file.
 const embeddingPrefix = z
@@ -69,11 +79,9 @@ const envSchema = z
       .min(1)
       .max(600000)
       .default(30000),
-    ALLOWED_REPO_ROOTS: z
-      .string()
-      .default('')
-      .transform((value) => value.split(delimiter).filter(Boolean)),
+    ALLOWED_REPO_ROOTS: pathList,
     REPO_REQUIRE_GIT_DIR: enabledByDefaultFlag,
+    ALLOWED_DOCUMENT_ROOTS: pathList,
     INFERENCE_BASE_URL: z.url().default('http://127.0.0.1:11434'),
     INFERENCE_PROVIDER: z.enum(['local']).default('local'),
     INFERENCE_RUNTIME: z.enum(INFERENCE_RUNTIMES).default('ollama'),
@@ -108,6 +116,30 @@ const envSchema = z
       .pipe(z.array(z.string().max(256)).max(256)),
     CHUNK_MAX_CHARS: z.coerce.number().int().min(200).max(20000).default(2000),
     CHUNK_OVERLAP_CHARS: z.coerce.number().int().min(0).default(200),
+    DOCUMENT_MAX_BYTES: z.coerce
+      .number()
+      .int()
+      .min(1024)
+      .max(1024 * 1024 * 1024)
+      .default(50 * 1024 * 1024),
+    PARSE_WORKERS: z.coerce.number().int().min(1).max(16).optional(),
+    PARSE_INLINE_MAX_BYTES: z.coerce
+      .number()
+      .int()
+      .min(0)
+      .default(1024 * 1024),
+    PARSE_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .min(1000)
+      .max(600000)
+      .default(60000),
+    PARSE_WORKER_MAX_MEMORY_MB: z.coerce
+      .number()
+      .int()
+      .min(64)
+      .max(8192)
+      .default(512),
     INDEXING_EMBED_CONCURRENCY: z.coerce
       .number()
       .int()
@@ -232,8 +264,11 @@ export interface AppConfig {
   database: DatabaseConfig;
   allowedRepoRoots: string[];
   requireGitDirectory: boolean;
+  allowedDocumentRoots: string[];
   inference: InferenceConfig;
   ingestion: IngestionConfig;
+  documents: DocumentsConfig;
+  parsing: ParsingConfig;
   indexing: IndexingConfig;
   retrieval: RetrievalConfig;
   chat: ChatConfig;
@@ -278,6 +313,19 @@ export interface IngestionConfig {
 export interface IndexingConfig {
   /** Files embedded in parallel within one index job. */
   embedConcurrency: number;
+}
+
+export interface DocumentsConfig {
+  /** Larger documents are skipped with the reason too-large. */
+  maxBytes: number;
+}
+
+export interface ParsingConfig {
+  workers: number;
+  /** Text documents up to this size are parsed in the API thread; binary formats always go to a worker. */
+  inlineMaxBytes: number;
+  timeoutMs: number;
+  workerMaxMemoryMb: number;
 }
 
 export interface RetrievalConfig {
@@ -355,6 +403,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     },
     allowedRepoRoots: e.ALLOWED_REPO_ROOTS,
     requireGitDirectory: e.REPO_REQUIRE_GIT_DIR,
+    allowedDocumentRoots: e.ALLOWED_DOCUMENT_ROOTS,
     inference: {
       provider: e.INFERENCE_PROVIDER,
       runtime: e.INFERENCE_RUNTIME,
@@ -375,6 +424,15 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       excludePatterns: e.INGEST_EXCLUDE_PATTERNS,
       chunkMaxChars: e.CHUNK_MAX_CHARS,
       chunkOverlapChars: e.CHUNK_OVERLAP_CHARS,
+    },
+    documents: {
+      maxBytes: e.DOCUMENT_MAX_BYTES,
+    },
+    parsing: {
+      workers: e.PARSE_WORKERS ?? defaultParseWorkers(),
+      inlineMaxBytes: e.PARSE_INLINE_MAX_BYTES,
+      timeoutMs: e.PARSE_TIMEOUT_MS,
+      workerMaxMemoryMb: e.PARSE_WORKER_MAX_MEMORY_MB,
     },
     indexing: {
       embedConcurrency: e.INDEXING_EMBED_CONCURRENCY,

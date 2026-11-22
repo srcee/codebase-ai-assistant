@@ -1,0 +1,19 @@
+meta {
+  name: List document collections
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/document-collections
+  body: none
+  auth: inherit
+}
+
+vars:post-response {
+  collectionId: res.body[0]?.id
+}
+
+assert {
+  res.status: eq 200
+}

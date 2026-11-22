@@ -9,6 +9,9 @@ import { runMigrations } from '../lib/connection/migrate';
 
 const DISPOSABLE_NAME = /^[a-z0-9_]+_test$/;
 
+// Creating, migrating, and booting a suite database can outlast Jest's 5 s default when suites run in parallel.
+export const DATABASE_SETUP_TIMEOUT_MS = 30_000;
+
 export function loadTestEnv(): void {
   const envFile = join(__dirname, '..', '..', '..', '..', '..', '.env');
   if (existsSync(envFile)) process.loadEnvFile(envFile);

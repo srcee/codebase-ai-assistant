@@ -134,7 +134,7 @@ The `indexing` module runs discovery, chunking, and embedding for a registered c
 
 | Endpoint                               | Success                                                                                                                           |
 | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /codebases/:id/index`            | `202` with the queued job; work continues in the background                                                                       |
+| `POST /codebases/:id/index`            | `202` with the queued job (`sourceId` is the codebase id); work continues in the background                                       |
 | `GET /codebases/:id/index-jobs/latest` | `200` with `{ job, issues }`: counters, status, sanitized `errorSummary`, and up to 500 skipped or failed files with their reason |
 
 - Incremental: a file is skipped when its content hash, embedding identity (`<runtime>/<model>`, for example `ollama/nomic-embed-text`), and `CHUNKING_VERSION` all match. Changed files are re-chunked; chunks whose hash already has a vector for the same identity in the same codebase reuse it, so renames and unchanged symbols cost no embedding calls. Changing `INFERENCE_RUNTIME`, `EMBEDDING_MODEL`, or `CHUNKING_VERSION` re-embeds everything on the next run.
@@ -146,21 +146,51 @@ The `indexing` module runs discovery, chunking, and embedding for a registered c
 
 ### Projects
 
-A project groups sources (code repositories now, document collections later) so one search can span them. See [decision 0009](docs/decisions/0009-knowledge-sources-and-projects.md).
+A project groups sources (code repositories and document collections) so one search can span them. See [decision 0009](docs/decisions/0009-knowledge-sources-and-projects.md).
 
-| Endpoint                    | Body                      | Success                                             |
-| --------------------------- | ------------------------- | --------------------------------------------------- |
-| `POST /projects`            | `{ name, description? }`  | `201` with the project and an empty `sourceIds`     |
-| `GET /projects`             |                           | `200` with a list ordered by name                   |
-| `GET /projects/:id`         |                           | `200` with the project                              |
-| `PATCH /projects/:id`       | `{ name?, description? }` | `200`; `description: null` clears it                |
-| `PUT /projects/:id/sources` | `{ sourceIds }`           | `200`; replaces the whole set (0 to 100 unique ids) |
-| `DELETE /projects/:id`      |                           | `204`; its sources and their chunks are kept        |
+| Endpoint                    | Body                      | Success                                                                                                           |
+| --------------------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `POST /projects`            | `{ name, description? }`  | `201` with the project and an empty `sourceIds`                                                                   |
+| `GET /projects`             |                           | `200` with a list ordered by name                                                                                 |
+| `GET /projects/:id`         |                           | `200` with the project                                                                                            |
+| `PATCH /projects/:id`       | `{ name?, description? }` | `200`; `description: null` clears it                                                                              |
+| `PUT /projects/:id/sources` | `{ sourceIds }`           | `200`; replaces the whole set (0 to 100 unique ids)                                                               |
+| `POST /projects/:id/sync`   |                           | `202` `{ started, alreadyActive }`: one job per source; a source with an active job is reported, not queued again |
+| `DELETE /projects/:id`      |                           | `204`; its sources and their chunks are kept                                                                      |
 
 - Names are 1 to 100 characters without control characters and need not be unique; descriptions are up to 2000 characters.
 - A source can belong to several projects. Deleting a source removes it from every project.
 - Failure modes: `400` invalid body, malformed `:id`, or a source id that does not exist (the ids are not echoed, and the old set is kept); `404` unknown project; `503` no `DATABASE_URL`.
 - Logs carry project ids and source counts only.
+
+### Document collections
+
+A document collection is a local folder of product documentation (specs, permission matrices, wiki exports) that is indexed next to code. The folder is mirrored, never copied: "Pull latest" re-indexes what changed. Folders can only be registered inside `ALLOWED_DOCUMENT_ROOTS` (same path rules as repositories, no `.git` needed). Uploads follow in a later change. See [decision 0010](docs/decisions/0010-document-storage-and-sync.md), [0011](docs/decisions/0011-parsing-worker-pool.md), and [0014](docs/decisions/0014-text-document-chunking.md).
+
+| Endpoint                                          | Body                               | Success                                                                                    |
+| ------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------ |
+| `POST /document-collections`                      | `{ name, origin: 'folder', path }` | `201` with the collection; `relativePath` is relative to its document root                 |
+| `GET /document-collections`                       |                                    | `200` with a list ordered by name                                                          |
+| `GET /document-collections/:id`                   |                                    | `200` with the collection                                                                  |
+| `DELETE /document-collections/:id`                |                                    | `204`; files, chunks, jobs, and project links are deleted by cascade; a running sync stops |
+| `POST /document-collections/:id/sync`             |                                    | `202` with the queued job ("Pull latest")                                                  |
+| `GET /document-collections/:id/changes`           |                                    | `200` `{ new, changed, removed }`, found by hashing without parsing or embedding           |
+| `GET /document-collections/:id/index-jobs/latest` |                                    | `200` with `{ job, issues }`, as for codebases                                             |
+
+- Markdown (`.md`, `.markdown`) is split by headings: each chunk is titled with its heading path (`Roles > Reviewer > Permissions`), has a `section` locator, and never crosses a heading. Tables become `table_rows` chunks with every row written as `Header: value` lines. Text before the first heading, front matter, and plain text (`.txt`) get a `lines` locator. Other formats are skipped as `unsupported-extension` (binaries such as PDF and images as `excluded-path`) until later stages add them.
+- Discovery uses the exclusion rules of code ingestion: secret filenames, built-in exclusions, `INGEST_EXCLUDE_PATTERNS`, and `.gitignore`. A file over `DOCUMENT_MAX_BYTES` is skipped as `too-large`. Binary content, invalid UTF-8, and secret-like content are skipped after hashing (`binary`, `invalid-encoding`, `secret-content`) and are not parsed again while unchanged.
+- A sync reads and hashes every file. A file is unchanged when its SHA-256, embedding identity, and format chunking version match; unchanged files are not parsed, and chunks with a known hash reuse their vector, so renames cost no embedding calls. Rows of removed files are deleted at the end of the run.
+- Parsing runs in a pool of worker threads (`PARSE_WORKERS`, default `min(cores - 1, 4)`). Text files up to `PARSE_INLINE_MAX_BYTES` are parsed in the API thread. A parse that exceeds `PARSE_TIMEOUT_MS` or `PARSE_WORKER_MAX_MEMORY_MB`, or crashes its worker, fails that file only (`parse_timeout`, `parse_crashed`, `parse_failed`); the worker is replaced and the job continues. Workers have no database, network, inference, or logger; lint enforces this.
+- Failure modes: `400` invalid body, an `upload` origin, or a path outside the document roots (same message for a missing path, never echoed); `404` unknown collection, including the id of a codebase; `409` the folder is already registered as any source, or a sync is already active; `503` no `DATABASE_URL`. A folder that moved or became unreadable fails the job with a fixed summary.
+- Logs carry collection and job ids, counts, and timings only; file paths and document text are never logged.
+
+The opt-in document evaluation indexes a synthetic documentation set (`libs/server/testing/eval/documents/corpus`, roles, permissions, workflows, glossary) and scores `documents/questions.v1.json`, whose expected locations are locators (section, table rows, or lines). It writes `reports/documents-<label>.json` and `.md` next to the code reports.
+
+```powershell
+npm run db:test:up
+$env:RUN_DOCUMENT_EVAL = 'true'; $env:EVAL_LABEL = 'stage10'
+npx nx run api:test --skip-nx-cache --testPathPatterns=documents.eval
+```
 
 ### Retrieval
 

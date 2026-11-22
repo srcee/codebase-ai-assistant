@@ -1,0 +1,602 @@
+{
+  "version": 1,
+  "corpus": "libs/server/testing/eval/documents/corpus",
+  "questions": [
+    {
+      "id": "role-permission-01",
+      "category": "role-permission",
+      "question": "Which roles can approve a refund above 500 EUR?",
+      "expected": [
+        {
+          "path": "roles/permissions.md",
+          "locator": {
+            "kind": "table_rows",
+            "tableIndex": 1,
+            "rowStart": 5,
+            "rowEnd": 5,
+            "columns": [
+              "Permission",
+              "Owner",
+              "Admin",
+              "Reviewer",
+              "Support Agent",
+              "Viewer"
+            ]
+          },
+          "anchor": "Approve refund above 500 EUR"
+        }
+      ]
+    },
+    {
+      "id": "role-permission-02",
+      "category": "role-permission",
+      "question": "Can a Support Agent publish a product?",
+      "expected": [
+        {
+          "path": "roles/permissions.md",
+          "locator": {
+            "kind": "table_rows",
+            "tableIndex": 2,
+            "rowStart": 3,
+            "rowEnd": 3,
+            "columns": [
+              "Permission",
+              "Owner",
+              "Admin",
+              "Reviewer",
+              "Support Agent",
+              "Viewer"
+            ]
+          },
+          "anchor": "Publish a product"
+        }
+      ]
+    },
+    {
+      "id": "role-permission-03",
+      "category": "role-permission",
+      "question": "Who may change the role of a staff member?",
+      "expected": [
+        {
+          "path": "roles/permissions.md",
+          "locator": {
+            "kind": "table_rows",
+            "tableIndex": 3,
+            "rowStart": 3,
+            "rowEnd": 3,
+            "columns": [
+              "Permission",
+              "Owner",
+              "Admin",
+              "Reviewer",
+              "Support Agent",
+              "Viewer"
+            ]
+          },
+          "anchor": "Change a staff role"
+        }
+      ]
+    },
+    {
+      "id": "role-permission-04",
+      "category": "role-permission",
+      "question": "Is an Admin allowed to edit the payout bank details?",
+      "expected": [
+        {
+          "path": "roles/permissions.md",
+          "locator": {
+            "kind": "table_rows",
+            "tableIndex": 3,
+            "rowStart": 4,
+            "rowEnd": 4,
+            "columns": [
+              "Permission",
+              "Owner",
+              "Admin",
+              "Reviewer",
+              "Support Agent",
+              "Viewer"
+            ]
+          },
+          "anchor": "Edit payout bank details"
+        }
+      ]
+    },
+    {
+      "id": "role-permission-05",
+      "category": "role-permission",
+      "question": "Can a Viewer open a refund request?",
+      "expected": [
+        {
+          "path": "roles/permissions.md",
+          "locator": {
+            "kind": "table_rows",
+            "tableIndex": 1,
+            "rowStart": 3,
+            "rowEnd": 3,
+            "columns": [
+              "Permission",
+              "Owner",
+              "Admin",
+              "Reviewer",
+              "Support Agent",
+              "Viewer"
+            ]
+          },
+          "anchor": "Open refund request"
+        }
+      ]
+    },
+    {
+      "id": "role-permission-06",
+      "category": "role-permission",
+      "question": "What is a Reviewer not allowed to do?",
+      "expected": [
+        {
+          "path": "roles/reviewer.md",
+          "locator": {
+            "kind": "section",
+            "headingPath": ["Reviewer", "Limits"]
+          },
+          "anchor": "Reviewers cannot cancel orders"
+        }
+      ]
+    },
+    {
+      "id": "table-row-01",
+      "category": "table-row",
+      "question": "Who can cancel an unshipped order?",
+      "expected": [
+        {
+          "path": "roles/permissions.md",
+          "locator": {
+            "kind": "table_rows",
+            "tableIndex": 1,
+            "rowStart": 6,
+            "rowEnd": 6,
+            "columns": [
+              "Permission",
+              "Owner",
+              "Admin",
+              "Reviewer",
+              "Support Agent",
+              "Viewer"
+            ]
+          },
+          "anchor": "Cancel an unshipped order"
+        }
+      ]
+    },
+    {
+      "id": "table-row-02",
+      "category": "table-row",
+      "question": "Which roles may change prices in bulk?",
+      "expected": [
+        {
+          "path": "roles/permissions.md",
+          "locator": {
+            "kind": "table_rows",
+            "tableIndex": 2,
+            "rowStart": 5,
+            "rowEnd": 5,
+            "columns": [
+              "Permission",
+              "Owner",
+              "Admin",
+              "Reviewer",
+              "Support Agent",
+              "Viewer"
+            ]
+          },
+          "anchor": "Change prices in bulk"
+        }
+      ]
+    },
+    {
+      "id": "table-row-03",
+      "category": "table-row",
+      "question": "Which roles can export the audit log according to the permission matrix?",
+      "expected": [
+        {
+          "path": "roles/permissions.md",
+          "locator": {
+            "kind": "table_rows",
+            "tableIndex": 3,
+            "rowStart": 5,
+            "rowEnd": 5,
+            "columns": [
+              "Permission",
+              "Owner",
+              "Admin",
+              "Reviewer",
+              "Support Agent",
+              "Viewer"
+            ]
+          },
+          "anchor": "Export the audit log"
+        }
+      ]
+    },
+    {
+      "id": "table-row-04",
+      "category": "table-row",
+      "question": "Who typically holds the Viewer role?",
+      "expected": [
+        {
+          "path": "roles/overview.md",
+          "locator": {
+            "kind": "table_rows",
+            "tableIndex": 1,
+            "rowStart": 6,
+            "rowEnd": 6,
+            "columns": ["Role", "Purpose", "Typical holder"]
+          },
+          "anchor": "Finance analyst"
+        }
+      ]
+    },
+    {
+      "id": "table-row-05",
+      "category": "table-row",
+      "question": "Which role manages integrations?",
+      "expected": [
+        {
+          "path": "roles/overview.md",
+          "locator": {
+            "kind": "table_rows",
+            "tableIndex": 1,
+            "rowStart": 3,
+            "rowEnd": 3,
+            "columns": ["Role", "Purpose", "Typical holder"]
+          },
+          "anchor": "integrations"
+        }
+      ]
+    },
+    {
+      "id": "workflow-01",
+      "category": "workflow",
+      "question": "What states does a refund go through?",
+      "expected": [
+        {
+          "path": "workflows/refund-approval.md",
+          "locator": {
+            "kind": "section",
+            "headingPath": ["Refund approval", "States"]
+          },
+          "anchor": "Paid out"
+        }
+      ]
+    },
+    {
+      "id": "workflow-02",
+      "category": "workflow",
+      "question": "How long may a refund request wait for a decision?",
+      "expected": [
+        {
+          "path": "workflows/refund-approval.md",
+          "locator": {
+            "kind": "section",
+            "headingPath": ["Refund approval", "Service levels"]
+          },
+          "anchor": "within two business days"
+        }
+      ]
+    },
+    {
+      "id": "workflow-03",
+      "category": "workflow",
+      "question": "What happens to a refund above 500 EUR while the Owner is away?",
+      "expected": [
+        {
+          "path": "workflows/refund-approval.md",
+          "locator": {
+            "kind": "section",
+            "headingPath": ["Refund approval", "Escalation"]
+          },
+          "anchor": "stays in Under review"
+        }
+      ]
+    },
+    {
+      "id": "workflow-04",
+      "category": "workflow",
+      "question": "How do I schedule a product to go live later?",
+      "expected": [
+        {
+          "path": "workflows/product-publishing.md",
+          "locator": {
+            "kind": "section",
+            "headingPath": ["Product publishing", "Scheduled publishing"]
+          },
+          "anchor": "scheduled to go live"
+        }
+      ]
+    },
+    {
+      "id": "workflow-05",
+      "category": "workflow",
+      "question": "How can I restore an older version of a product?",
+      "expected": [
+        {
+          "path": "workflows/product-publishing.md",
+          "locator": {
+            "kind": "section",
+            "headingPath": ["Product publishing", "Rolling back"]
+          },
+          "anchor": "History tab"
+        }
+      ]
+    },
+    {
+      "id": "workflow-06",
+      "category": "workflow",
+      "question": "How long is a staff invitation link valid?",
+      "expected": [
+        {
+          "path": "workflows/staff-onboarding.md",
+          "locator": {
+            "kind": "section",
+            "headingPath": ["Staff onboarding", "Invitations"]
+          },
+          "anchor": "expires after 72 hours"
+        }
+      ]
+    },
+    {
+      "id": "workflow-07",
+      "category": "workflow",
+      "question": "What should an Admin do when an employee leaves the company?",
+      "expected": [
+        {
+          "path": "workflows/staff-onboarding.md",
+          "locator": {
+            "kind": "section",
+            "headingPath": ["Staff onboarding", "Offboarding"]
+          },
+          "anchor": "deactivates the account"
+        }
+      ]
+    },
+    {
+      "id": "workflow-08",
+      "category": "workflow",
+      "question": "How does a Support Agent open a refund request?",
+      "expected": [
+        {
+          "path": "roles/support-agent.md",
+          "locator": {
+            "kind": "section",
+            "headingPath": ["Support Agent", "Refund requests"]
+          },
+          "anchor": "picks a reason"
+        }
+      ]
+    },
+    {
+      "id": "glossary-01",
+      "category": "glossary",
+      "question": "What is a goodwill refund?",
+      "expected": [
+        {
+          "path": "glossary.txt",
+          "locator": { "kind": "lines", "startLine": 9, "endLine": 9 },
+          "anchor": "Goodwill refund:"
+        }
+      ]
+    },
+    {
+      "id": "glossary-02",
+      "category": "glossary",
+      "question": "When are payouts made?",
+      "expected": [
+        {
+          "path": "glossary.txt",
+          "locator": { "kind": "lines", "startLine": 11, "endLine": 11 },
+          "anchor": "every Monday"
+        }
+      ]
+    },
+    {
+      "id": "glossary-03",
+      "category": "glossary",
+      "question": "What is the refund queue?",
+      "expected": [
+        {
+          "path": "glossary.txt",
+          "locator": { "kind": "lines", "startLine": 13, "endLine": 13 },
+          "anchor": "Refund queue:"
+        }
+      ]
+    },
+    {
+      "id": "glossary-04",
+      "category": "glossary",
+      "question": "Define a deactivated account",
+      "expected": [
+        {
+          "path": "glossary.txt",
+          "locator": { "kind": "lines", "startLine": 19, "endLine": 19 },
+          "anchor": "Deactivated account:"
+        }
+      ]
+    },
+    {
+      "id": "exact-term-01",
+      "category": "exact-term",
+      "question": "four-eyes rule",
+      "expected": [
+        {
+          "path": "roles/reviewer.md",
+          "locator": {
+            "kind": "section",
+            "headingPath": ["Reviewer", "Four-eyes rule"]
+          },
+          "anchor": "Nobody may approve their own work"
+        }
+      ]
+    },
+    {
+      "id": "exact-term-02",
+      "category": "exact-term",
+      "question": "recovery codes",
+      "expected": [
+        {
+          "path": "security/two-factor.md",
+          "locator": {
+            "kind": "section",
+            "headingPath": ["Two-factor authentication", "Recovery codes"]
+          },
+          "anchor": "ten single-use recovery codes"
+        }
+      ]
+    },
+    {
+      "id": "exact-term-03",
+      "category": "exact-term",
+      "question": "Auditor access period",
+      "expected": [
+        {
+          "path": "security/audit-log.md",
+          "locator": {
+            "kind": "section",
+            "headingPath": ["Audit log", "Auditor access"]
+          },
+          "anchor": "up to 30 days"
+        }
+      ]
+    },
+    {
+      "id": "exact-term-04",
+      "category": "exact-term",
+      "question": "hardware security key",
+      "expected": [
+        {
+          "path": "security/two-factor.md",
+          "locator": {
+            "kind": "section",
+            "headingPath": [
+              "Two-factor authentication",
+              "Required for every account"
+            ]
+          },
+          "anchor": "hardware security key"
+        }
+      ]
+    },
+    {
+      "id": "exact-term-05",
+      "category": "exact-term",
+      "question": "Release 4.2",
+      "expected": [
+        {
+          "path": "release-notes.txt",
+          "locator": { "kind": "lines", "startLine": 3, "endLine": 5 },
+          "anchor": "Release 4.2"
+        }
+      ]
+    },
+    {
+      "id": "paraphrase-01",
+      "category": "paraphrase",
+      "question": "How long are audit entries kept before they disappear?",
+      "expected": [
+        {
+          "path": "security/audit-log.md",
+          "locator": {
+            "kind": "section",
+            "headingPath": ["Audit log", "Retention"]
+          },
+          "anchor": "400 days"
+        }
+      ]
+    },
+    {
+      "id": "paraphrase-02",
+      "category": "paraphrase",
+      "question": "Can I make my own role with a hand-picked set of permissions?",
+      "expected": [
+        {
+          "path": "faq.md",
+          "locator": {
+            "kind": "section",
+            "headingPath": [
+              "Frequently asked questions",
+              "Can I create a custom role?"
+            ]
+          },
+          "anchor": "six fixed roles"
+        }
+      ]
+    },
+    {
+      "id": "paraphrase-03",
+      "category": "paraphrase",
+      "question": "Why is the option to approve missing for me?",
+      "expected": [
+        {
+          "path": "faq.md",
+          "locator": {
+            "kind": "section",
+            "headingPath": [
+              "Frequently asked questions",
+              "Why can't I see the Approve button?"
+            ]
+          },
+          "anchor": "four-eyes rule applies"
+        }
+      ]
+    },
+    {
+      "id": "paraphrase-04",
+      "category": "paraphrase",
+      "question": "What happens when the shop is shut down?",
+      "expected": [
+        {
+          "path": "faq.md",
+          "locator": {
+            "kind": "section",
+            "headingPath": [
+              "Frequently asked questions",
+              "Who can close the store?"
+            ]
+          },
+          "anchor": "stops all sales immediately"
+        }
+      ]
+    },
+    {
+      "id": "paraphrase-05",
+      "category": "paraphrase",
+      "question": "Can the shop switch to a different currency?",
+      "expected": [
+        {
+          "path": "faq.md",
+          "locator": {
+            "kind": "section",
+            "headingPath": [
+              "Frequently asked questions",
+              "How do I change the store currency?"
+            ]
+          },
+          "anchor": "cannot be changed later"
+        }
+      ]
+    },
+    {
+      "id": "paraphrase-06",
+      "category": "paraphrase",
+      "question": "What happens if someone loses the phone they use to sign in?",
+      "expected": [
+        {
+          "path": "security/two-factor.md",
+          "locator": {
+            "kind": "section",
+            "headingPath": ["Two-factor authentication", "Lost devices"]
+          },
+          "anchor": "resets their two-factor setup"
+        }
+      ]
+    }
+  ]
+}

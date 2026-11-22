@@ -266,4 +266,40 @@ describe('PathPolicyService', () => {
     const escaped = await rejection(policy(), join(outside, 'secret'));
     expect(missing.message).toBe(escaped.message);
   });
+
+  describe('document folders', () => {
+    const documents = () =>
+      policy({ ALLOWED_REPO_ROOTS: '', ALLOWED_DOCUMENT_ROOTS: root });
+
+    it('accepts a folder without .git inside a document root', async () => {
+      await expect(
+        documents().resolve(join(root, 'plain'), 'document_collection'),
+      ).resolves.toEqual({
+        canonicalPath: join(root, 'plain'),
+        relativePath: 'plain',
+      });
+    });
+
+    it('keeps repository and document roots apart', async () => {
+      await expect(
+        documents().resolve(join(root, 'repo')),
+      ).rejects.toMatchObject({ reason: 'outside-allowed-roots' });
+      await expect(
+        policy().resolve(join(root, 'plain'), 'document_collection'),
+      ).rejects.toMatchObject({ reason: 'outside-allowed-roots' });
+    });
+
+    it('names the document root in the rejection message', async () => {
+      await expect(
+        documents().resolve(join(outside, 'secret'), 'document_collection'),
+      ).rejects.toThrow('allowed document root');
+    });
+
+    it('lists only the document roots', async () => {
+      await expect(
+        documents().canonicalRoots('document_collection'),
+      ).resolves.toEqual([root]);
+      await expect(documents().canonicalRoots()).resolves.toEqual([]);
+    });
+  });
 });
