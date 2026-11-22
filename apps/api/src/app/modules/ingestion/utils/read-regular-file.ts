@@ -9,7 +9,7 @@ export type ReadOutcome =
 
 /**
  * Reads a regular file without following a link, never more than `maxBytes`.
- * Non-regular files (FIFOs, devices) are never opened, and a file swapped for another after the check is rejected.
+ * Non-regular files (FIFOs, devices) are never opened, and a file swapped for another or grown after the check is rejected.
  */
 export async function readRegularFile(
   path: string,
@@ -19,6 +19,7 @@ export async function readRegularFile(
     const before = await lstat(path, { bigint: true });
     if (!before.isFile()) return { kind: 'unreadable' };
     if (before.size > BigInt(maxBytes)) return { kind: 'too-large' };
+    const size = Number(before.size);
 
     const handle = await open(path, 'r');
     try {
@@ -31,7 +32,8 @@ export async function readRegularFile(
       if (!after.isFile() || after.ino !== before.ino || !sameDevice) {
         return { kind: 'unreadable' };
       }
-      const buffer = Buffer.allocUnsafe(maxBytes + 1);
+      // The spare byte shows whether the file grew after the size check.
+      const buffer = Buffer.allocUnsafe(size + 1);
       let filled = 0;
       while (filled < buffer.length) {
         const { bytesRead } = await handle.read(
@@ -43,7 +45,9 @@ export async function readRegularFile(
         if (bytesRead === 0) break;
         filled += bytesRead;
       }
-      if (filled > maxBytes) return { kind: 'too-large' };
+      if (filled > size) {
+        return { kind: filled > maxBytes ? 'too-large' : 'unreadable' };
+      }
       return { kind: 'read', bytes: buffer.subarray(0, filled) };
     } finally {
       await handle.close();

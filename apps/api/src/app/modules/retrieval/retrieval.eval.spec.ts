@@ -21,6 +21,7 @@ import { createTestApp } from '../../../testing/create-test-app';
 import { evalRoot } from '../../../testing/evaluation/eval-root';
 import { loadQuestionSet } from '../../../testing/evaluation/eval-questions';
 import {
+  linesTarget,
   type ResultLocation,
   SEARCH_MODES,
   type ModeSummary,
@@ -139,7 +140,11 @@ if (!enabled) {
           const started = performance.now();
           const results = await searchers[mode](question.question);
           scores.push(
-            scoreQuestion(question, results, performance.now() - started),
+            scoreQuestion(
+              { ...question, targets: question.expected.map(linesTarget) },
+              results,
+              performance.now() - started,
+            ),
           );
         }
         modes[mode] = summarizeScores(scores);

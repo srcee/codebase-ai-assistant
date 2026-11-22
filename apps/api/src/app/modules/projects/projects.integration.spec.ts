@@ -2,6 +2,7 @@ import { Logger, type INestApplication } from '@nestjs/common';
 import type { ProjectResponse } from '@codebase-ai/contracts';
 import { type DatabaseHandle, schema } from '@codebase-ai/server-database';
 import {
+  DATABASE_SETUP_TIMEOUT_MS,
   describeWithDatabase,
   prepareDedicatedDatabase,
   sourceFactory,
@@ -36,7 +37,7 @@ describeWithDatabase('projects API', (baseUrl) => {
     app = await createTestApp({
       config: testConfig({ DATABASE_URL: prepared.url }),
     });
-  });
+  }, DATABASE_SETUP_TIMEOUT_MS);
 
   afterEach(async () => {
     jest.restoreAllMocks();

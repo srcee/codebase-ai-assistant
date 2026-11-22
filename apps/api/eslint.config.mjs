@@ -10,6 +10,16 @@ const notSource = [
 ];
 const registry = 'src/app/modules/inference/constants/runtime-adapters.ts';
 const adapterFolders = 'src/app/modules/inference/adapters/**/*.ts';
+const parseWorkerFiles = [
+  'src/parse-worker.ts',
+  'src/app/modules/document-ingestion/utils/**/*.ts',
+];
+
+const adapterImports = {
+  group: ['**/adapters/**'],
+  message:
+    'Inject EMBEDDING_PORT, CHAT_PORT or RUNTIME_HEALTH_PORT; runtime adapters are plugged in only through RUNTIME_ADAPTERS.',
+};
 
 // Each block replaces the rule for its files, so every block repeats the shared parts.
 const restrictedImports = (...extraPatterns) => [
@@ -45,11 +55,7 @@ export default [
         'error',
         { name: 'fetch', message: egressMessage },
       ],
-      'no-restricted-imports': restrictedImports({
-        group: ['**/adapters/**'],
-        message:
-          'Inject EMBEDDING_PORT, CHAT_PORT or RUNTIME_HEALTH_PORT; runtime adapters are plugged in only through RUNTIME_ADAPTERS.',
-      }),
+      'no-restricted-imports': restrictedImports(adapterImports),
     },
   },
   {
@@ -64,6 +70,40 @@ export default [
         // A path that goes up exactly one level lands in a sibling adapter folder.
         regex: '^\\.\\./(?!\\.\\./)',
         message: 'An adapter folder must not import another adapter folder.',
+      }),
+    },
+  },
+  {
+    // Parse workers only parse and chunk (decision 0011).
+    files: parseWorkerFiles,
+    ignores: notSource,
+    rules: {
+      'no-restricted-imports': restrictedImports(adapterImports, {
+        group: [
+          '@nestjs/*',
+          '@codebase-ai/server-config',
+          '@codebase-ai/server-database',
+          'drizzle-orm',
+          'pg',
+          'fs',
+          'fs/*',
+          'node:fs',
+          'node:fs/*',
+          'net',
+          'node:net',
+          'dns',
+          'node:dns',
+          'tls',
+          'node:tls',
+          'child_process',
+          'node:child_process',
+          '**/privacy/**',
+          '**/inference/**',
+          '**/embeddings/**',
+          '**/indexing/**',
+        ],
+        message:
+          'Parse workers have no database, filesystem, network, inference, or logger; they get bytes and return chunks.',
       }),
     },
   },

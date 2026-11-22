@@ -2,11 +2,11 @@
 
 **Goal:** Register document collections from a local folder or by upload, keep them in sync with one action, parse in a worker pool, and index Markdown and plain text with heading-aware chunks.
 
-**Status:** Not started
+**Status:** In progress. CAA-19 adds folder collections, the parsing worker pool, Markdown and TXT chunking, sync, change checks, project sync, and the document evaluation (`libs/server/testing/eval/reports/documents-stage10.md`). Uploads follow in CAA-20 and document collections in the web scope picker in CAA-21.
 
 **Prerequisites:** Stages 8 and 9.
 
-**Decisions:** [0010 Document storage and sync](decisions/0010-document-storage-and-sync.md), [0011 Parsing worker pool](decisions/0011-parsing-worker-pool.md)
+**Decisions:** [0010 Document storage and sync](decisions/0010-document-storage-and-sync.md), [0011 Parsing worker pool](decisions/0011-parsing-worker-pool.md), [0014 Text document chunking](decisions/0014-text-document-chunking.md)
 
 ## Tasks
 

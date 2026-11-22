@@ -1,0 +1,19 @@
+Harbor Shop Back Office glossary
+
+Back Office: the staff application where orders, refunds, the catalog, and the team are managed.
+
+Draft: an unpublished version of a product that customers cannot see.
+
+Four-eyes rule: nobody may approve or publish their own work; a second person must confirm it.
+
+Goodwill refund: a refund given to keep a customer happy although the order was delivered correctly.
+
+Payout: the transfer of a store's sales balance to its bank account, made every Monday.
+
+Refund queue: the list of refund requests that wait for a Reviewer, oldest first.
+
+Service level: the promised time for a decision; refund requests get one within two business days.
+
+Store currency: the currency in which a store keeps its books, fixed when the store is created.
+
+Deactivated account: a staff account that can no longer sign in but stays in the audit log.

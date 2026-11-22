@@ -29,3 +29,4 @@ Progress overview. Each item file has the details; update the checkbox when its 
 - [~] [008 Pagination](improvements/008-pagination.md): conversations and messages in CAA-17; other lists not yet
 - [ ] [009 Required e2e suite](improvements/009-required-e2e.md): Stage 17
 - [ ] [010 Commitlint](improvements/010-commitlint.md)
+- [ ] [011 Chat evaluation report](improvements/011-chat-evaluation-report.md): Stage 9 follow-up

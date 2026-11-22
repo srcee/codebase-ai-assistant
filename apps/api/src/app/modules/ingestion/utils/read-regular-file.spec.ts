@@ -27,6 +27,13 @@ describe('readRegularFile', () => {
     expect(await readRegularFile(file, 5)).toEqual({ kind: 'too-large' });
   });
 
+  it('reads a small file under a very large limit', async () => {
+    const outcome = await readRegularFile(file, 1024 * 1024 * 1024);
+    expect(
+      outcome.kind === 'read' && Buffer.from(outcome.bytes).toString(),
+    ).toBe('abcdef');
+  });
+
   it('rejects directories and missing paths', async () => {
     expect(await readRegularFile(directory, 100)).toEqual({
       kind: 'unreadable',

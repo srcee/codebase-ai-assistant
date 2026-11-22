@@ -1,0 +1,15 @@
+meta {
+  name: Delete document collection
+  type: http
+  seq: 7
+}
+
+delete {
+  url: {{baseUrl}}/document-collections/{{collectionId}}
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 204
+}

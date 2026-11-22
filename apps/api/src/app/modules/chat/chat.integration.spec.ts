@@ -12,6 +12,7 @@ import {
   axisVector,
   chunkFactory,
   conversationFactory,
+  DATABASE_SETUP_TIMEOUT_MS,
   describeWithDatabase,
   prepareDedicatedDatabase,
   projectFactory,
@@ -161,7 +162,7 @@ describeWithDatabase('chat', (baseUrl) => {
       ],
     });
     identity = app.get(EmbeddingsService, { strict: false }).identity;
-  });
+  }, DATABASE_SETUP_TIMEOUT_MS);
 
   beforeEach(() => {
     prompts.length = 0;

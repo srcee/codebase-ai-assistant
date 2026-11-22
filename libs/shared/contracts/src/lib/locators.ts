@@ -1,5 +1,8 @@
 export type SourceKind = 'code_repository' | 'document_collection';
 
+/** Mirrors the latest index job of the source. */
+export type SourceStatus = 'registered' | 'indexing' | 'ready' | 'failed';
+
 export type ContentKind =
   | 'code'
   | 'prose'

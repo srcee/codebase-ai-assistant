@@ -1,4 +1,6 @@
-export type CodebaseStatus = 'registered' | 'indexing' | 'ready' | 'failed';
+import type { SourceStatus } from './locators';
+
+export type CodebaseStatus = SourceStatus;
 
 export interface CreateCodebaseRequest {
   /** Absolute path of a directory inside one of the allowed repository roots. */

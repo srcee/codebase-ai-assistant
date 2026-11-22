@@ -18,6 +18,7 @@ import { PathPolicyService } from '../codebases/services/path-policy.service';
 import { RepositoryRootChangedError } from './errors/repository-root-changed.error';
 import { UnknownLanguageError } from './errors/unknown-language.error';
 import { ChunkingService } from './services/chunking.service';
+import { DirectoryWalkerService } from './services/directory-walker.service';
 import { ExclusionPolicyService } from './services/exclusion-policy.service';
 import { FileDiscoveryService } from './services/file-discovery.service';
 import type { Chunk } from './types/chunk';
@@ -62,7 +63,7 @@ describe('ingestion', () => {
     return new FileDiscoveryService(
       config,
       new PathPolicyService(config),
-      new ExclusionPolicyService(config),
+      new DirectoryWalkerService(new ExclusionPolicyService(config)),
     );
   };
 

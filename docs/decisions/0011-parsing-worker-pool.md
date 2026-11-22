@@ -1,6 +1,6 @@
 # 0011: Parsing worker pool
 
-Status: proposed (Stage 10)
+Status: accepted (Stage 10, CAA-19)
 
 ## Context
 
@@ -18,6 +18,9 @@ Code files are small text and are chunked in the API thread. Documents are diffe
 - **Back-pressure.** The pool queue is bounded by `INDEXING_EMBED_CONCURRENCY` files per job, so a large folder does not load every file into memory.
 - **Shutdown.** The pool terminates its workers in `beforeApplicationShutdown`, after the index runner has aborted its jobs.
 - **Build.** The worker entry is a separate webpack entry next to `main.ts`. Tests run the same entry, so specs do not mock the pool.
+- **Start-up and cancellation** (CAA-19). Workers start on first use. A worker sends `ready` once loaded and only then gets its file, so `PARSE_TIMEOUT_MS` measures the parse; a worker that has not loaded within 30 seconds counts as crashed. An aborted job or a shutdown rejects its parses as cancelled instead of failing the files, so the order of the shutdown hooks does not matter. A byte view into a pooled or larger buffer is copied before the transfer.
+- **Entry resolution** (CAA-19). The built worker is `parse-worker.js` next to `main.js`. When the API runs from TypeScript sources (Jest), the same `src/parse-worker.ts` is started through `ts-node` in transpile-only mode; failure specs swap in a fixture worker through the `PARSE_WORKER_ENTRY` token. Inline parses call the same handler as the worker.
+- **Isolation is linted** (CAA-19). `parse-worker.ts` and `document-ingestion/utils` may not import Nest, the database, the filesystem, network modules, or the privacy, inference, embeddings, and indexing modules.
 
 ## Consequences
 

@@ -1,0 +1,13 @@
+Harbor Shop Back Office release notes
+
+Release 4.2
+Refund requests older than two business days are now flagged in red, and the Owner receives a daily digest of flagged requests.
+The Auditor role can export the audit log as a CSV file.
+
+Release 4.1
+Scheduled publishing lets Reviewers set the date and time at which a product draft goes live.
+Products keep their last ten versions; earlier versions can be restored from the History tab.
+
+Release 4.0
+Hardware security keys are now required for Owners and Admins.
+Invitation links expire after 72 hours instead of seven days.

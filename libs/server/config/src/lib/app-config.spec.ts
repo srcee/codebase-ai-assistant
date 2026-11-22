@@ -1,3 +1,4 @@
+import { availableParallelism } from 'node:os';
 import { delimiter, resolve } from 'node:path';
 import {
   assertNotLeaked,
@@ -37,6 +38,16 @@ describe('loadConfig', () => {
       ALLOWED_REPO_ROOTS: roots.join(delimiter),
     });
     expect(config.allowedRepoRoots).toEqual(roots);
+  });
+
+  it('parses allowed document roots separately from repository roots', () => {
+    const roots = [faker.system.directoryPath(), faker.system.directoryPath()];
+    const config = loadConfig({
+      ALLOWED_DOCUMENT_ROOTS: roots.join(delimiter),
+    });
+    expect(config.allowedDocumentRoots).toEqual(roots);
+    expect(config.allowedRepoRoots).toEqual([]);
+    expect(loadConfig({}).allowedDocumentRoots).toEqual([]);
   });
 
   it.each(['0.0.0.0', faker.internet.ipv4()])(
@@ -427,6 +438,50 @@ describe('loadConfig', () => {
           message: expect.not.stringContaining(CANARY_DB_PASSWORD),
         }),
       );
+    });
+  });
+
+  describe('documents and parsing', () => {
+    it('uses documented defaults', () => {
+      const config = loadConfig({});
+      expect(config.documents).toEqual({ maxBytes: 50 * 1024 * 1024 });
+      expect(config.parsing).toEqual({
+        workers: Math.max(1, Math.min(availableParallelism() - 1, 4)),
+        inlineMaxBytes: 1024 * 1024,
+        timeoutMs: 60000,
+        workerMaxMemoryMb: 512,
+      });
+    });
+
+    it('reads overrides', () => {
+      const config = loadConfig({
+        DOCUMENT_MAX_BYTES: '4096',
+        PARSE_WORKERS: '2',
+        PARSE_INLINE_MAX_BYTES: '0',
+        PARSE_TIMEOUT_MS: '5000',
+        PARSE_WORKER_MAX_MEMORY_MB: '128',
+      });
+      expect(config.documents.maxBytes).toBe(4096);
+      expect(config.parsing).toEqual({
+        workers: 2,
+        inlineMaxBytes: 0,
+        timeoutMs: 5000,
+        workerMaxMemoryMb: 128,
+      });
+    });
+
+    it.each([
+      ['DOCUMENT_MAX_BYTES', '1023'],
+      ['DOCUMENT_MAX_BYTES', String(1024 * 1024 * 1024 + 1)],
+      ['PARSE_WORKERS', '0'],
+      ['PARSE_WORKERS', '17'],
+      ['PARSE_INLINE_MAX_BYTES', '-1'],
+      ['PARSE_TIMEOUT_MS', '999'],
+      ['PARSE_TIMEOUT_MS', '600001'],
+      ['PARSE_WORKER_MAX_MEMORY_MB', '63'],
+      ['PARSE_WORKER_MAX_MEMORY_MB', 'abc'],
+    ])('rejects %s=%s', (key, value) => {
+      expect(() => loadConfig({ [key]: value })).toThrow(ConfigError);
     });
   });
 });
