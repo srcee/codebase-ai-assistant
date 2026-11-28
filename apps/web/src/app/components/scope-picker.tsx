@@ -1,9 +1,14 @@
-import type { CodebaseResponse, ProjectResponse } from '@codebase-ai/contracts';
+import type {
+  CodebaseResponse,
+  DocumentCollectionResponse,
+  ProjectResponse,
+} from '@codebase-ai/contracts';
 import type { ChatScope } from '../types/chat-scope';
 
 interface ScopePickerProps {
   projects: ProjectResponse[];
   codebases: CodebaseResponse[];
+  collections: DocumentCollectionResponse[];
   value: ChatScope | null;
   onChange: (scope: ChatScope | null) => void;
 }
@@ -18,6 +23,7 @@ function decode(value: string): ChatScope | null {
 export function ScopePicker({
   projects,
   codebases,
+  collections,
   value,
   onChange,
 }: ScopePickerProps) {
@@ -28,7 +34,7 @@ export function ScopePicker({
         value={value ? encode(value) : ''}
         onChange={(event) => onChange(decode(event.target.value))}
       >
-        <option value="">Choose a project or repository</option>
+        <option value="">Choose a project, repository, or collection</option>
         {projects.length > 0 && (
           <optgroup label="Projects">
             {projects.map((project) => (
@@ -43,6 +49,15 @@ export function ScopePicker({
             {codebases.map((codebase) => (
               <option key={codebase.id} value={`source:${codebase.id}`}>
                 {codebase.name}
+              </option>
+            ))}
+          </optgroup>
+        )}
+        {collections.length > 0 && (
+          <optgroup label="Document collections">
+            {collections.map((collection) => (
+              <option key={collection.id} value={`source:${collection.id}`}>
+                {collection.name}
               </option>
             ))}
           </optgroup>

@@ -40,6 +40,7 @@ export function App() {
         <ScopePicker
           projects={scopes.projects}
           codebases={scopes.codebases}
+          collections={scopes.collections}
           value={scope}
           onChange={setScope}
         />

@@ -242,7 +242,7 @@ The `chat` module answers a question from retrieved evidence through `Generation
 - Failure modes, before the stream starts: `400` invalid body, both or neither scope, a question over `CHAT_MAX_QUESTION_CHARS`, or a bad cursor; `404` unknown project or conversation; `429` while `CHAT_MAX_CONCURRENT` answers are generating; `503` inference unavailable, model missing, `CHAT_GENERATION_TIMEOUT_MS` exceeded, or no `DATABASE_URL`. After it starts, failures arrive as an `error` event with a fixed message. Closing the connection stops generation.
 - Logs carry the conversation id, counts, citation counts, and timings only.
 
-The web app (`npm run start:web`, then open http://localhost:4200) has a minimal chat: pick a project or repository, ask, stop an answer, and open or delete earlier conversations. Stage 17 builds the full UI.
+The web app (`npm run start:web`, then open http://localhost:4200) has a minimal chat: pick a project, repository, or document collection, ask, stop an answer, and open or delete earlier conversations. Stage 17 builds the full UI.
 
 `chat.eval.spec.ts` indexes the evaluation corpus, asks every question of `questions.v1.json` plus the unanswerable questions of `chat-questions.v2.json` through `POST /chat` with the real local models, then asks the follow-up pairs of `chat-questions.v2.json` in one conversation each. It writes `reports/chat-<label>.json` and `.md`: citation validity, answers that cite an expected location (a groundedness proxy), abstention on unanswerable and answerable questions, follow-ups that cite an expected location, latency, and a table for a manual groundedness review. Use it to tune `CHAT_MIN_VECTOR_SIMILARITY` and `CHAT_MIN_TERM_COVERAGE`.
 
