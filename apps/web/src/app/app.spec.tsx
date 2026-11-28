@@ -5,6 +5,7 @@ import {
   codebaseResponseFactory,
   conversationResponseFactory,
   conversationSummaryFactory,
+  documentCollectionResponseFactory,
   faker,
   healthResponseFactory,
   projectResponseFactory,
@@ -14,9 +15,11 @@ import App from './app';
 
 const project = projectResponseFactory.build();
 const codebase = codebaseResponseFactory.build();
+const collection = documentCollectionResponseFactory.build();
 const scopes = {
   'GET /projects': () => json(200, [project]),
   'GET /codebases': () => json(200, [codebase]),
+  'GET /document-collections': () => json(200, [collection]),
 };
 
 const chooseScope = async (value: string) => {
@@ -76,6 +79,39 @@ describe('App', () => {
   });
 
   describe('chat', () => {
+    it('groups projects, repositories, and document collections', async () => {
+      mockApi(scopes);
+      render(<App />);
+      await screen.findByRole('option', { name: project.name });
+
+      const groups: [string, string][] = [
+        ['Projects', project.name],
+        ['Repositories', codebase.name],
+        ['Document collections', collection.name],
+      ];
+      for (const [label, name] of groups) {
+        const group = screen.getByRole('group', { name: label });
+        expect(within(group).getByRole('option', { name })).toBeTruthy();
+      }
+    });
+
+    it('sends a document collection scope', async () => {
+      const fetchMock = mockApi({
+        ...scopes,
+        'POST /chat': () =>
+          eventStream([{ event: 'done', data: chatDoneEventFactory.build() }]),
+      });
+      render(<App />);
+      await chooseScope(`source:${collection.id}`);
+
+      ask('Which role can approve?');
+      await vi.waitFor(() => expect(chatBodies(fetchMock)).toHaveLength(1));
+
+      expect(chatBodies(fetchMock)).toEqual([
+        { question: 'Which role can approve?', sourceIds: [collection.id] },
+      ]);
+    });
+
     it('disables sending until a scope is chosen', async () => {
       mockApi(scopes);
       render(<App />);

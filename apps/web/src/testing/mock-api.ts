@@ -44,6 +44,7 @@ export function mockApi(routes: Record<string, Handler>) {
     'GET /health': () => json(200, healthResponseFactory.build()),
     'GET /projects': () => json(200, []),
     'GET /codebases': () => json(200, []),
+    'GET /document-collections': () => json(200, []),
     'GET /conversations': () => json(200, { items: [], nextCursor: null }),
     ...routes,
   };
