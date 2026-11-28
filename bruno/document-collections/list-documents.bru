@@ -1,0 +1,23 @@
+meta {
+  name: List documents
+  type: http
+  seq: 11
+}
+
+get {
+  url: {{baseUrl}}/document-collections/{{uploadCollectionId}}/documents?limit=20
+  body: none
+  auth: inherit
+}
+
+params:query {
+  limit: 20
+}
+
+assert {
+  res.status: eq 200
+}
+
+docs {
+  Upload collections only, ordered by path ignoring case. Pass `nextCursor` as `cursor` for the next page.
+}

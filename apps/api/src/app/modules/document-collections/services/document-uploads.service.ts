@@ -5,18 +5,25 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { and, eq, inArray, sql } from 'drizzle-orm';
-import type { UploadDocumentsResponse } from '@codebase-ai/contracts';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import type {
+  DocumentSummary,
+  Page,
+  PageQuery,
+  UploadDocumentsResponse,
+} from '@codebase-ai/contracts';
 import {
   DatabaseService,
   type DatabaseTransaction,
   schema,
 } from '@codebase-ai/server-database';
+import { DEFAULT_PAGE_SIZE } from '../../chat/dto/page-query.dto';
 import { BlobStoreService } from '../../document-ingestion/services/blob-store.service';
 import { IndexJobRunnerService } from '../../indexing/services/index-job-runner.service';
 import { toDocumentSummary } from '../mappers/to-document-summary';
 import type { ReceivedPart } from '../types/received-part';
 import type { UploadRequest } from '../types/upload-request';
+import { decodePathCursor, encodePathCursor } from '../utils/path-cursor';
 import { UploadReceiverService } from './upload-receiver.service';
 
 const { documents, indexJobs, sourceFiles, sources } = schema;
@@ -47,6 +54,50 @@ export class DocumentUploadsService {
     private readonly blobs: BlobStoreService,
     private readonly runner: IndexJobRunnerService,
   ) {}
+
+  /** Ordered by path ignoring case, like the unique index. */
+  async list(
+    collectionId: string,
+    query: PageQuery,
+  ): Promise<Page<DocumentSummary>> {
+    const [collection] = await this.database.db
+      .select({ origin: sources.origin })
+      .from(sources)
+      .where(
+        and(
+          eq(sources.id, collectionId),
+          eq(sources.kind, 'document_collection'),
+        ),
+      );
+    if (!collection) throw new NotFoundException(COLLECTION_NOT_FOUND);
+    if (collection.origin !== 'upload') {
+      throw new BadRequestException(NOT_UPLOAD);
+    }
+
+    const limit = query.limit ?? DEFAULT_PAGE_SIZE;
+    const after =
+      query.cursor === undefined ? undefined : decodePathCursor(query.cursor);
+    const lowerPath = sql<string>`lower(${documents.logicalPath})`;
+    const rows = await this.database.db
+      .select({ row: documents, lowerPath })
+      .from(documents)
+      .where(
+        and(
+          eq(documents.sourceId, collectionId),
+          after === undefined ? undefined : sql`${lowerPath} > ${after}`,
+        ),
+      )
+      .orderBy(asc(lowerPath))
+      .limit(limit + 1);
+
+    const items = rows.slice(0, limit);
+    const last = items[items.length - 1];
+    return {
+      items: items.map(({ row }) => toDocumentSummary(row)),
+      nextCursor:
+        rows.length > limit && last ? encodePathCursor(last.lowerPath) : null,
+    };
+  }
 
   async upload(
     collectionId: string,

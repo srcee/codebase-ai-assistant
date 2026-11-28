@@ -6,7 +6,9 @@ import type {
   ChatDoneEvent,
   DocumentChangesResponse,
   DocumentCollectionResponse,
+  DocumentSummary,
   LatestIndexJobResponse,
+  Page,
   ProjectResponse,
   SearchResponse,
   UploadDocumentsResponse,
@@ -453,6 +455,67 @@ describeWithDatabase('document uploads', (baseUrl) => {
       await api()
         .delete(`/document-collections/${unknown}/documents/${unknown}`)
         .expect(404);
+    });
+  });
+
+  describe('list', () => {
+    const list = async (id: string, query: string) =>
+      (
+        await api()
+          .get(`/document-collections/${id}/documents${query}`)
+          .expect(200)
+      ).body as Page<DocumentSummary>;
+
+    it('pages documents by path ignoring case without the blob hash', async () => {
+      const id = await createUploadCollection();
+      const create = { transient: { db: handle.db } };
+      const rows = [];
+      for (const logicalPath of ['b.md', 'A.md', 'specs/c.md']) {
+        rows.push(
+          await documentFactory.create({ sourceId: id, logicalPath }, create),
+        );
+      }
+
+      const first = await list(id, '?limit=2');
+      expect(first.items.map((item) => item.logicalPath)).toEqual([
+        'A.md',
+        'b.md',
+      ]);
+      expect(first.nextCursor).not.toBeNull();
+      const second = await list(
+        id,
+        `?limit=2&cursor=${encodeURIComponent(String(first.nextCursor))}`,
+      );
+      expect(second).toEqual({
+        items: [expect.objectContaining({ logicalPath: 'specs/c.md' })],
+        nextCursor: null,
+      });
+      assertNotLeaked([first, second], ...rows.map((row) => row.blobHash));
+    });
+
+    it('rejects folder collections, unknown ids, and bad cursors', async () => {
+      const folder = join(box.root, 'listed');
+      mkdirSync(folder, { recursive: true });
+      const created = (
+        await api()
+          .post('/document-collections')
+          .send({ name: 'Folder', origin: 'folder', path: folder })
+          .expect(201)
+      ).body as DocumentCollectionResponse;
+      await api()
+        .get(`/document-collections/${created.id}/documents`)
+        .expect(400);
+      await api()
+        .get(`/document-collections/${faker.string.uuid()}/documents`)
+        .expect(404);
+
+      const id = await createUploadCollection();
+      await api()
+        .get(`/document-collections/${id}/documents?cursor=not-a-cursor`)
+        .expect(400);
+      await api()
+        .get(`/document-collections/${id}/documents?limit=0`)
+        .expect(400);
     });
   });
 

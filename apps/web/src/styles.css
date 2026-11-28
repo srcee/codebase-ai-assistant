@@ -17,6 +17,7 @@ body {
 }
 
 button,
+input,
 select,
 textarea {
   font: inherit;
@@ -196,4 +197,144 @@ button.icon {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.views {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.views button {
+  flex: 1;
+}
+
+.views button[aria-current='page'] {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.page {
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+.sources {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-width: 60rem;
+}
+
+.sources h2 {
+  font-size: 1.05rem;
+  margin: 0 0 0.5rem;
+}
+
+.source-list,
+.rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.source {
+  margin: 0 0 0.75rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.source p {
+  margin: 0.25rem 0;
+}
+
+.source__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.source__actions {
+  display: flex;
+  gap: 0.25rem;
+  margin-left: auto;
+}
+
+.badge {
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 0.8rem;
+}
+
+.badge--ready {
+  border-color: #2e8b57;
+}
+
+.badge--indexing,
+.badge--changes {
+  border-color: var(--accent);
+}
+
+.badge--failed {
+  border-color: var(--error);
+}
+
+.confirm {
+  display: inline-flex;
+  gap: 0.25rem;
+}
+
+button.danger {
+  color: var(--error);
+}
+
+.register {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.register .field {
+  flex: 1 1 14rem;
+}
+
+.register input,
+.register select {
+  padding: 0.35rem;
+}
+
+.register .error {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.documents {
+  margin-top: 0.5rem;
+}
+
+.dropzone {
+  padding: 0.75rem;
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+}
+
+.dropzone--active {
+  border-color: var(--accent);
+}
+
+.rows li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.15rem 0;
+}
+
+.rows li > span:first-child {
+  flex: 1;
+  overflow-wrap: anywhere;
 }
