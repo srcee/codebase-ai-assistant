@@ -1,4 +1,4 @@
-import { availableParallelism } from 'node:os';
+import { availableParallelism, homedir } from 'node:os';
 import { delimiter, resolve } from 'node:path';
 import { z } from 'zod';
 
@@ -30,10 +30,14 @@ const commaList = (value: string): string[] =>
     .map((item) => item.trim())
     .filter(Boolean);
 
+// Unset means the user's home directory; a missing path disables registration.
 const pathList = z
   .string()
   .default('')
-  .transform((value) => value.split(delimiter).filter(Boolean));
+  .transform((value) => {
+    const paths = value.split(delimiter).filter(Boolean);
+    return paths.length > 0 ? paths : [homedir()];
+  });
 
 // One core stays free for the API thread.
 const defaultParseWorkers = (): number =>
@@ -82,6 +86,16 @@ const envSchema = z
     ALLOWED_REPO_ROOTS: pathList,
     REPO_REQUIRE_GIT_DIR: enabledByDefaultFlag,
     ALLOWED_DOCUMENT_ROOTS: pathList,
+    HOST_PATH_PREFIX: z
+      .string()
+      .max(4096)
+      .regex(/^([a-z]:[\\/]|\/)/i, 'must be an absolute path')
+      .optional(),
+    CONTAINER_PATH_PREFIX: z
+      .string()
+      .max(4096)
+      .regex(/^\//, 'must be an absolute POSIX path')
+      .optional(),
     INFERENCE_BASE_URL: z.url().default('http://127.0.0.1:11434'),
     INFERENCE_PROVIDER: z.enum(['local']).default('local'),
     INFERENCE_RUNTIME: z.enum(INFERENCE_RUNTIMES).default('ollama'),
@@ -208,6 +222,16 @@ const envSchema = z
     CHAT_REWRITE_FOLLOW_UPS: enabledByDefaultFlag,
   })
   .superRefine((env, ctx) => {
+    if (
+      (env.HOST_PATH_PREFIX === undefined) !==
+      (env.CONTAINER_PATH_PREFIX === undefined)
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['HOST_PATH_PREFIX'],
+        message: 'must be set together with CONTAINER_PATH_PREFIX',
+      });
+    }
     if (!LOOPBACK_HOSTS.has(env.API_HOST)) {
       ctx.addIssue({
         code: 'custom',
@@ -267,6 +291,8 @@ export interface AppConfig {
   allowedRepoRoots: string[];
   requireGitDirectory: boolean;
   allowedDocumentRoots: string[];
+  /** Set when the API runs in a container: host paths users type are rewritten to the mount. */
+  hostPathMapping?: HostPathMapping;
   inference: InferenceConfig;
   ingestion: IngestionConfig;
   documents: DocumentsConfig;
@@ -274,6 +300,11 @@ export interface AppConfig {
   indexing: IndexingConfig;
   retrieval: RetrievalConfig;
   chat: ChatConfig;
+}
+
+export interface HostPathMapping {
+  hostPrefix: string;
+  containerPrefix: string;
 }
 
 export interface DatabaseConfig {
@@ -410,6 +441,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     allowedRepoRoots: e.ALLOWED_REPO_ROOTS,
     requireGitDirectory: e.REPO_REQUIRE_GIT_DIR,
     allowedDocumentRoots: e.ALLOWED_DOCUMENT_ROOTS,
+    hostPathMapping:
+      e.HOST_PATH_PREFIX !== undefined && e.CONTAINER_PATH_PREFIX !== undefined
+        ? {
+            hostPrefix: e.HOST_PATH_PREFIX,
+            containerPrefix: e.CONTAINER_PATH_PREFIX,
+          }
+        : undefined,
     inference: {
       provider: e.INFERENCE_PROVIDER,
       runtime: e.INFERENCE_RUNTIME,

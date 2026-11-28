@@ -35,5 +35,103 @@ services:
       timeout: 3s
       retries: 15
 
+  # The app profile (`npm start`) runs the built API and web UI. web, api, and ollama-relay share one
+  # network namespace, so the API binds and reaches inference on 127.0.0.1 as the privacy policy requires.
+  web:
+    profiles: ['app']
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: web
+    image: codebase-ai-assistant/web:local
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:${WEB_PORT:-8080}:8080'
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    volumes:
+      - api-token:/run/api-token:ro
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'wget',
+          '-q',
+          '-O',
+          '/dev/null',
+          'http://127.0.0.1:8080/healthz',
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Forwards loopback port 11434 to the Ollama installed on the host.
+  ollama-relay:
+    profiles: ['app']
+    image: alpine/socat:1.8.0.3
+    restart: unless-stopped
+    network_mode: service:web
+    command:
+      [
+        'TCP-LISTEN:11434,bind=127.0.0.1,fork,reuseaddr',
+        'TCP:host.docker.internal:11434',
+      ]
+
+  migrate:
+    profiles: ['app']
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: migrate
+    image: codebase-ai-assistant/migrate:local
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    profiles: ['app']
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: api
+    image: codebase-ai-assistant/api:local
+    restart: unless-stopped
+    network_mode: service:web
+    env_file: .env
+    environment:
+      API_HOST: 127.0.0.1
+      API_PORT: '3000'
+      API_TOKEN_FILE: /run/api-token/api-token.secret
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      INFERENCE_BASE_URL: http://127.0.0.1:11434
+      ALLOWED_REPO_ROOTS: /sources
+      ALLOWED_DOCUMENT_ROOTS: /sources
+      HOST_PATH_PREFIX: ${SOURCES_DIR:-}
+      CONTAINER_PATH_PREFIX: /sources
+      DATA_DIR: /data
+    volumes:
+      # npm start sets SOURCES_DIR to your home directory unless .env sets it.
+      - ${SOURCES_DIR:-.}:/sources:ro
+      - app-data:/data
+      - api-token:/run/api-token
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      ollama-relay:
+        condition: service_started
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "require('http').get({ host: '127.0.0.1', port: 3000, path: '/health/live', headers: { host: 'localhost' } }, (response) => process.exit(response.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
+      interval: 10s
+      timeout: 3s
+      retries: 30
+
 volumes:
   pgdata:
+  app-data:
+  api-token:

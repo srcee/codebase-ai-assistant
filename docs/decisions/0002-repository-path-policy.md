@@ -19,6 +19,7 @@ Responses return a name and a forward-slash path relative to the matching root (
 
 ## Consequences
 
-- With no `ALLOWED_REPO_ROOTS`, nothing can be registered.
+- With no `ALLOWED_REPO_ROOTS`, the user's home directory is the only root (changed by decision 0016; before that nothing could be registered). Set the variable to a folder that does not exist to allow nothing.
+- When the API runs in a container, `HOST_PATH_PREFIX` and `CONTAINER_PATH_PREFIX` rewrite a host path to the mounted path before step 1, so every check still runs on the result; a Windows path outside the prefix is rejected as outside the roots (decision 0016).
 - Moving or re-linking a repository after registration is not tracked; code that reads files later must re-run the policy on the stored path.
 - Paths that differ only by case or separators on Windows collapse to one canonical path, so they conflict as duplicates.

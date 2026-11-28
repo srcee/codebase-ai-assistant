@@ -1,0 +1,15 @@
+# Keep secrets, local data, and build leftovers out of the image build context.
+.git
+.env
+.env.*
+!.env.example
+.local
+node_modules
+dist
+tmp
+coverage
+.nx
+.vscode
+.idea
+docs/local
+**/*.secret

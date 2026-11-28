@@ -1,4 +1,4 @@
-import { availableParallelism } from 'node:os';
+import { availableParallelism, homedir } from 'node:os';
 import { delimiter, resolve } from 'node:path';
 import {
   assertNotLeaked,
@@ -15,7 +15,8 @@ describe('loadConfig', () => {
       port: 3000,
       tokenFile: resolve('.local/api-token.secret'),
     });
-    expect(config.allowedRepoRoots).toEqual([]);
+    expect(config.allowedRepoRoots).toEqual([homedir()]);
+    expect(config.allowedDocumentRoots).toEqual([homedir()]);
     expect(config.requireGitDirectory).toBe(true);
   });
 
@@ -46,8 +47,36 @@ describe('loadConfig', () => {
       ALLOWED_DOCUMENT_ROOTS: roots.join(delimiter),
     });
     expect(config.allowedDocumentRoots).toEqual(roots);
-    expect(config.allowedRepoRoots).toEqual([]);
-    expect(loadConfig({}).allowedDocumentRoots).toEqual([]);
+    expect(config.allowedRepoRoots).toEqual([homedir()]);
+  });
+
+  it('falls back to the home directory when roots are empty', () => {
+    const config = loadConfig({
+      ALLOWED_REPO_ROOTS: delimiter,
+      ALLOWED_DOCUMENT_ROOTS: '',
+    });
+    expect(config.allowedRepoRoots).toEqual([homedir()]);
+    expect(config.allowedDocumentRoots).toEqual([homedir()]);
+  });
+
+  it('reads the host path mapping when both prefixes are set', () => {
+    const hostPrefix = `C:\\Users\\${faker.system.fileName({ extensionCount: 0 })}`;
+    expect(
+      loadConfig({
+        HOST_PATH_PREFIX: hostPrefix,
+        CONTAINER_PATH_PREFIX: '/sources',
+      }).hostPathMapping,
+    ).toEqual({ hostPrefix, containerPrefix: '/sources' });
+    expect(loadConfig({}).hostPathMapping).toBeUndefined();
+  });
+
+  it.each([
+    { HOST_PATH_PREFIX: '/home/user' },
+    { CONTAINER_PATH_PREFIX: '/sources' },
+    { HOST_PATH_PREFIX: 'relative', CONTAINER_PATH_PREFIX: '/sources' },
+    { HOST_PATH_PREFIX: '/home/user', CONTAINER_PATH_PREFIX: 'C:\\sources' },
+  ])('rejects an incomplete or relative host path mapping %#', (env) => {
+    expect(() => loadConfig(env)).toThrow(ConfigError);
   });
 
   it.each(['0.0.0.0', faker.internet.ipv4()])(

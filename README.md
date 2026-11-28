@@ -1,23 +1,237 @@
+<div align="center">
+
 # Codebase AI Assistant
 
-A local-first Codebase RAG Assistant. It indexes repositories on your machine and answers natural-language questions about the code, with citations to repository, file path, and line range.
+**Ask questions about your code and docs. Get answers with citations. Nothing leaves your machine.**
 
-## Privacy invariant
+A local-first RAG assistant that indexes your repositories and product documentation,<br/>
+then answers in natural language with links to the exact file, line range, or section.
 
-In V1, repository source code and anything derived from it (chunks, embeddings, prompts, chat history) never leaves the machine. There are no hosted LLM or embedding APIs, no cloud vector stores, and no remote fallback. If local inference is unavailable, requests fail with a clear error.
+![100% local](https://img.shields.io/badge/data-100%25%20local-2ea44f?style=for-the-badge&logo=lock&logoColor=white)
+![Ollama](https://img.shields.io/badge/Ollama-local%20LLM-000000?style=for-the-badge&logo=ollama&logoColor=white)
+![Docker](https://img.shields.io/badge/one%20command-npm%20start-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 
-## Status
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![NestJS](https://img.shields.io/badge/NestJS-E0234E?style=flat-square&logo=nestjs&logoColor=white)
+![React](https://img.shields.io/badge/React-20232A?style=flat-square&logo=react&logoColor=61DAFB)
+![Vite](https://img.shields.io/badge/Vite-646CFF?style=flat-square&logo=vite&logoColor=white)
+![Mantine](https://img.shields.io/badge/Mantine-339AF0?style=flat-square&logo=mantine&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL%20%2B%20pgvector-4169E1?style=flat-square&logo=postgresql&logoColor=white)
+![Drizzle](https://img.shields.io/badge/Drizzle%20ORM-C5F74F?style=flat-square&logo=drizzle&logoColor=black)
+![Nx](https://img.shields.io/badge/Nx-143055?style=flat-square&logo=nx&logoColor=white)
 
-Early development. Work is split into stages; see [docs/](docs/):
+[Quick start](#-quick-start) · [Features](#-features) · [How it works](#-how-it-works) · [Privacy](#-privacy-by-design) · [Developer guide](#-developer-guide)
 
-- [Project context and architecture](docs/Codebase_RAG_Assistant_Project_Context.md)
-- Stage plans: `docs/stage-0.md` through `docs/stage-19.md`. Stages 8 and 10-16 add document collections and projects for product documentation; Stage 19 is security hardening and release.
+</div>
 
-## Planned stack
+---
 
-TypeScript, Nx, NestJS, React + Vite, PostgreSQL + pgvector, local inference via Ollama.
+## 🚀 Quick start
 
-## Development
+You need [Docker](https://docs.docker.com/get-docker/), [Node.js 22+](https://nodejs.org), and [Ollama](https://ollama.com/download).
+
+**1. Pull the models** (once)
+
+```bash
+ollama pull nomic-embed-text    # embeddings
+ollama pull qwen2.5-coder:7b    # chat, about 8 GB of RAM or VRAM
+```
+
+**2. Clone and start**
+
+```bash
+git clone https://github.com/srcee/codebase-ai-assistant.git
+cd codebase-ai-assistant
+npm start
+```
+
+**3. Open http://localhost:8080** and register any repository or documentation folder under your home directory by pasting its path, for example `C:\Users\you\projects\my-app` or `~/projects/my-app`.
+
+> [!TIP]
+> Prefer a smaller or different chat model? Pull it, then set `CHAT_MODEL` in `.env` (created on the first run). `npm start` lists your installed models if the configured one is missing.
+
+`npm start` checks that Docker and Ollama are running and the models are pulled, creates `.env` with a random database password, builds the images, runs the migrations, and waits until everything is healthy.
+
+| Command        | What it does                                          |
+| -------------- | ----------------------------------------------------- |
+| `npm start`    | Build and start PostgreSQL, the API, and the web UI   |
+| `npm stop`     | Stop everything (your data is kept in Docker volumes) |
+| `npm run logs` | Follow the API and web logs                           |
+
+<details>
+<summary><b>Repositories outside your home directory, other ports, and troubleshooting</b></summary>
+
+- **Other folders:** set `SOURCES_DIR` in `.env` to the folder that contains your repositories (for example `C:\Repositories`), then run `npm start` again. The containers can read only this folder, read-only.
+- **Port in use:** set `WEB_PORT` (default `8080`) or `POSTGRES_PORT` (default `5432`) in `.env`.
+- **Linux:** Ollama listens on `127.0.0.1` by default, which containers cannot reach. Start it with `OLLAMA_HOST=0.0.0.0` (for example `sudo systemctl edit ollama` and add `Environment="OLLAMA_HOST=0.0.0.0"`) and keep port 11434 closed in your firewall.
+- **macOS:** Docker cannot use the Apple GPU, which is why Ollama runs on the host, not in a container.
+- **Windows:** indexing large repositories through a Docker bind mount is slower than on Linux; the first index of a big repository takes a while.
+- **Start over:** `docker compose --profile app down -v` deletes the database, uploads, and API token.
+
+</details>
+
+## ✨ Features
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+### 💬 Grounded chat
+
+Answers stream token by token and cite every claim with a numbered link to the file and line range or document section. Citations are validated against the retrieved evidence; when the evidence is weak, the assistant says so instead of guessing.
+
+</td>
+<td width="50%" valign="top">
+
+### 🔎 Hybrid retrieval
+
+pgvector similarity search and Postgres full-text search, fused with Reciprocal Rank Fusion. Finds both paraphrased questions and exact identifiers or error strings.
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+### 🧩 Code-aware indexing
+
+TypeScript and JavaScript are chunked by symbol, 40+ other languages by lines. Incremental re-indexing embeds only what changed, and `.gitignore`, secret files, and secret-looking content are skipped.
+
+</td>
+<td valign="top">
+
+### 📚 Documents and projects
+
+Index Markdown and text documentation from a folder or by upload, split by heading with tables kept intact. Group repositories and docs into projects and ask across all of them at once.
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+### 🔒 Private by default
+
+No hosted APIs, no telemetry, no remote fallback. Outbound HTTP can only reach the local inference runtime, and the API only listens on loopback behind a per-install token.
+
+</td>
+<td valign="top">
+
+### 🔌 Pluggable runtime
+
+Inference sits behind ports and adapters. Ollama is the first adapter; another local runtime is one folder away.
+
+</td>
+</tr>
+</table>
+
+## 🧠 How it works
+
+```mermaid
+flowchart LR
+    subgraph index["Indexing"]
+        direction LR
+        A["📁 Repository<br/>or documents"] --> B["Discover files<br/><i>skip secrets and .gitignore</i>"]
+        B --> C["Chunk<br/><i>by symbol, heading, or table</i>"]
+        C --> D["Embed locally<br/><i>nomic-embed-text</i>"]
+        D --> E[("PostgreSQL<br/>pgvector + full-text")]
+    end
+    subgraph ask["Asking"]
+        direction LR
+        Q["❓ Question"] --> F["Hybrid search<br/><i>vector + lexical, RRF</i>"]
+        E --> F
+        F --> G["Grounded prompt<br/><i>evidence is untrusted input</i>"]
+        G --> H["Local LLM<br/><i>Ollama</i>"]
+        H --> I["✅ Answer with<br/>validated citations"]
+    end
+```
+
+<details>
+<summary><b>What happens when you ask a question</b></summary>
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor You
+    participant UI as Web UI
+    participant API as NestJS API
+    participant DB as PostgreSQL + pgvector
+    participant LLM as Ollama (local)
+    You->>UI: Ask about a project
+    UI->>API: POST /chat (SSE)
+    API->>LLM: Embed the question
+    API->>DB: Vector + full-text search, scoped to the project's sources
+    DB-->>API: Ranked chunks
+    alt Evidence too weak
+        API-->>UI: Abstain with suggestions
+    else Enough evidence
+        API->>LLM: Grounded prompt with numbered evidence
+        LLM-->>API: Tokens
+        API-->>UI: Stream tokens
+        API->>API: Validate citations
+        API->>DB: Save the conversation
+        API-->>UI: Answer + citations
+    end
+```
+
+</details>
+
+<details>
+<summary><b>How the Docker stack keeps everything on loopback</b></summary>
+
+```mermaid
+flowchart LR
+    subgraph host["Your machine"]
+        Browser["🌐 Browser"]
+        Ollama["🦙 Ollama"]
+        Files["📁 Your folders<br/>(read-only mount)"]
+        subgraph docker["Docker"]
+            subgraph ns["One shared network namespace (127.0.0.1)"]
+                Web["nginx<br/>UI + /api proxy"]
+                API["NestJS API"]
+                Relay["loopback relay"]
+            end
+            PG[("PostgreSQL")]
+        end
+    end
+    Browser -- "127.0.0.1:8080" --> Web
+    Web -- "127.0.0.1:3000 + token" --> API
+    API -- "127.0.0.1:11434" --> Relay --> Ollama
+    API --> PG
+    Files -.-> API
+```
+
+The API binds to `127.0.0.1` and only talks to inference on `127.0.0.1`, inside the container exactly as on bare metal. nginx adds the API token server-side, so it never reaches the browser. See [decision 0016](docs/decisions/0016-containerized-local-stack.md).
+
+</details>
+
+## 🔐 Privacy by design
+
+> [!IMPORTANT]
+> Source code and everything derived from it (chunks, embeddings, prompts, chat history) never leaves your machine. There are no hosted LLM or embedding APIs, no cloud vector stores, no telemetry, and no remote fallback. If local inference is unavailable, requests fail with a clear error.
+
+- **Loopback only:** the API refuses to start on a non-loopback host, and its only HTTP client refuses any destination other than the local runtime.
+- **Token and origin checks:** every route needs a per-install bearer token, and requests from other websites or rebinding domains get `403`.
+- **Path policy:** sources must sit inside allowed roots (your home directory by default); links that escape them are rejected.
+- **Secrets stay out:** secret filenames, `.env` files, keys, and secret-looking content are never indexed, and logs never contain code, prompts, or tokens.
+- **Untrusted input:** indexed files are treated as possible prompt injection and are never placed in the system prompt.
+
+## 🗺️ Roadmap
+
+- [x] Repository registration with a strict path policy
+- [x] Incremental indexing with code-aware chunking
+- [x] Hybrid retrieval with an evaluation harness
+- [x] Streaming chat with validated citations and conversation history
+- [x] Document collections (folders and uploads) and projects
+- [x] Web UI with light and dark themes
+- [x] One-command Docker start
+- [ ] More document formats (PDF, Office, images)
+- [ ] Security hardening and first release
+
+## 🛠️ Developer guide
+
+The sections below are for working on the code. Design decisions are recorded in [docs/decisions](docs/decisions/).
+
+<details>
+<summary><b>Run from source</b></summary>
 
 Requires Node 22+.
 
@@ -44,7 +258,10 @@ A pre-commit hook runs the secret scan and Prettier on staged files, then `npm r
 
 To call the API by hand, open the `bruno/` folder as a collection in [Bruno](https://www.usebruno.com) and select the `local` environment.
 
-### Database
+</details>
+
+<details>
+<summary><b>Database</b></summary>
 
 PostgreSQL with pgvector runs in Docker (`docker-compose.yml`), bound to `127.0.0.1`, with data in the named volume `pgdata` and credentials from `.env`.
 
@@ -60,7 +277,10 @@ Stage 8 replaced the migrations with a new baseline (decision 0009). A database 
 
 Integration tests use `TEST_DATABASE_URL` and are skipped when it is unset. They drop the `public` schema, so the database name must end in `_test`. The API suite uses its own `<name>_api_test` database on the same server (created if missing) so it can run in parallel with the schema suite. `GET /health` returns 503 with `status: "degraded"` when the database is unreachable, the `vector` extension is missing, the schema is not migrated, or the embedding column dimension differs from `EMBEDDING_DIMENSIONS`.
 
-### Layout
+</details>
+
+<details>
+<summary><b>Layout</b></summary>
 
 - `apps/api`: NestJS API (global validation rejects unknown fields; unexpected errors return a generic 500). Feature modules live here, for example `src/app/repositories` (path policy and `/repositories` endpoints).
 - `apps/web`: React + Vite UI built with Mantine components and Tabler icons ([decision 0015](docs/decisions/0015-web-ui-component-library.md)).
@@ -71,9 +291,12 @@ Integration tests use `TEST_DATABASE_URL` and are skipped when it is unset. They
 
 The web app cannot import `scope:server` libraries; this is enforced by lint.
 
-### Repositories API
+</details>
 
-Repositories can only be registered from directories inside `ALLOWED_REPO_ROOTS`. Responses carry a display name and a path relative to the allowed root, never an absolute path. See [docs/decisions/0002-repository-path-policy.md](docs/decisions/0002-repository-path-policy.md).
+<details>
+<summary><b>Repositories API</b></summary>
+
+Repositories can only be registered from directories inside `ALLOWED_REPO_ROOTS` (default: your home directory). Responses carry a display name and a path relative to the allowed root, never an absolute path. See [docs/decisions/0002-repository-path-policy.md](docs/decisions/0002-repository-path-policy.md).
 
 | Endpoint                   | Body              | Success                                                      |
 | -------------------------- | ----------------- | ------------------------------------------------------------ |
@@ -93,7 +316,10 @@ Failure modes:
 
 The API only starts on a loopback `API_HOST` (`127.0.0.1`, `localhost`, or `::1`); there is no opt-out.
 
-### Authentication
+</details>
+
+<details>
+<summary><b>Authentication</b></summary>
 
 Every route except `GET /health/live` needs `Authorization: Bearer <token>`. The token is 32 random bytes generated on first start and stored in `API_TOKEN_FILE` (default `.local/api-token.secret`, git-ignored, never indexed). On Linux and macOS the file is created with mode `0600` and the API refuses to start if other users can read it.
 
@@ -107,7 +333,10 @@ curl -H "Authorization: Bearer $(cat .local/api-token.secret)" http://127.0.0.1:
 - Requests are also rejected with `403` unless `Host` is `localhost`, `127.0.0.1`, or `[::1]`, `Origin` (when sent) is one of those, and `Sec-Fetch-Site` is not `cross-site`. This blocks DNS rebinding and other websites in your browser. A response with `401` or `403` carries a fixed message and never echoes headers.
 - `GET /health/live` returns `{ "status": "ok" }` without a token and checks no dependency. See [decision 0007](docs/decisions/0007-local-api-authentication.md).
 
-### Logging
+</details>
+
+<details>
+<summary><b>Logging</b></summary>
 
 Logs go to stdout and are never shipped anywhere. `LOG_LEVEL` (`error`, `warn`, `log`, `debug`, `verbose`; default `log`) and `LOG_FORMAT` (`text` or `json`; default `text`) are read at startup.
 
@@ -116,7 +345,10 @@ Logs go to stdout and are never shipped anywhere. `LOG_LEVEL` (`error`, `warn`, 
 - Registering or deleting a codebase and starting an index job log one line with ids only.
 - Source code, embeddings, prompts, chat text, request bodies, and tokens are never logged.
 
-### Ingestion (file discovery and chunking)
+</details>
+
+<details>
+<summary><b>Ingestion (file discovery and chunking)</b></summary>
 
 The `ingestion` module turns a registered repository into chunks. It has no endpoints and writes nothing to the database; the `indexing` module calls it. See [decision 0004](docs/decisions/0004-ingestion-discovery-and-chunking.md).
 
@@ -128,7 +360,10 @@ The `ingestion` module turns a registered repository into chunks. It has no endp
 - Failure modes: discovery throws `PathRejectedError` when the root is outside the allowed roots or no longer a repository, and `RepositoryRootChangedError` when the root is unreadable or resolves to a different path than the one registered (for example it was replaced by a link). Neither message contains a path.
 - The secret scan is deliberately conservative and favors skipping: documentation or tests that contain token-like examples can be skipped as `secret-content`.
 
-### Indexing
+</details>
+
+<details>
+<summary><b>Indexing</b></summary>
 
 The `indexing` module runs discovery, chunking, and embedding for a registered codebase and stores files and chunks. Jobs run inside the API process, one active job per codebase (enforced by a partial unique index). See [decision 0006](docs/decisions/0006-indexing-jobs.md).
 
@@ -144,7 +379,10 @@ The `indexing` module runs discovery, chunking, and embedding for a registered c
 - Failure modes: `404` unknown codebase or no job yet; `409` a job is already active; `503` no `DATABASE_URL`. Inference unavailable, a missing model, a dimension mismatch, or a moved repository root fails the job with a fixed summary; a request the runtime rejects (for example input over the model context) fails that file only. Deleting a codebase stops its job before the next file. Jobs still active when the API stopped are marked `failed` on the next start.
 - Logs carry job and codebase ids, counts, and timings only.
 
-### Projects
+</details>
+
+<details>
+<summary><b>Projects</b></summary>
 
 A project groups sources (code repositories and document collections) so one search can span them. See [decision 0009](docs/decisions/0009-knowledge-sources-and-projects.md).
 
@@ -163,7 +401,10 @@ A project groups sources (code repositories and document collections) so one sea
 - Failure modes: `400` invalid body, malformed `:id`, or a source id that does not exist (the ids are not echoed, and the old set is kept); `404` unknown project; `503` no `DATABASE_URL`.
 - Logs carry project ids and source counts only.
 
-### Document collections
+</details>
+
+<details>
+<summary><b>Document collections</b></summary>
 
 A document collection is product documentation (specs, permission matrices, wiki exports) that is indexed next to code. It comes from a local folder or from uploads. A folder is mirrored, never copied: "Pull latest" re-indexes what changed. Folders can only be registered inside `ALLOWED_DOCUMENT_ROOTS` (same path rules as repositories, no `.git` needed). Uploaded originals are kept in a local content-addressed store under `DATA_DIR` (default `.local/data`, gitignored) so they can be re-indexed after a model or chunking change. See [decision 0010](docs/decisions/0010-document-storage-and-sync.md), [0011](docs/decisions/0011-parsing-worker-pool.md), and [0014](docs/decisions/0014-text-document-chunking.md).
 
@@ -196,7 +437,10 @@ $env:RUN_DOCUMENT_EVAL = 'true'; $env:EVAL_LABEL = 'stage10'
 npx nx run api:test --skip-nx-cache --testPathPatterns=documents.eval
 ```
 
-### Retrieval
+</details>
+
+<details>
+<summary><b>Retrieval</b></summary>
 
 The `retrieval` module finds the chunks that answer a question. `RetrievalService.search({ query, sourceIds })` embeds the query (`embedQuery`), runs a pgvector cosine search and a full-text search, and fuses the two ranked lists with Reciprocal Rank Fusion (`1 / (RETRIEVAL_RRF_K + rank)`). It then drops chunks whose locator overlaps a better chunk of the same file and stops at `RETRIEVAL_MAX_CHUNKS` or `RETRIEVAL_MAX_CONTEXT_CHARS`. Each result carries its source id, name, and kind, relative path, title, content kind, locator, score, and which searches found it with their ranks.
 
@@ -222,7 +466,10 @@ npx nx run api:test --skip-nx-cache --testPathPatterns=retrieval.eval
 
 It needs the embedding runtime running with `EMBEDDING_MODEL` pulled and `TEST_DATABASE_URL` set, and it is skipped otherwise. The corpus is small, so absolute scores are optimistic; compare runs with each other, not with a target.
 
-### Chat
+</details>
+
+<details>
+<summary><b>Chat</b></summary>
 
 The `chat` module answers a question from retrieved evidence through `GenerationService` and the chat port, cites it, and stores the conversation locally. See [decision 0013](docs/decisions/0013-chat-and-grounded-generation.md).
 
@@ -252,7 +499,10 @@ $env:RUN_CHAT_EVAL = 'true'; $env:EVAL_LABEL = 'stage-9'
 npx nx run api:test --skip-nx-cache --testPathPatterns=chat.eval
 ```
 
-### Local inference
+</details>
+
+<details>
+<summary><b>Local inference</b></summary>
 
 Embeddings and chat run in a local runtime, [Ollama](https://ollama.com) by default. Install it, then pull the default models:
 
@@ -289,7 +539,10 @@ To check the services against the runtime configured in your environment (skippe
 $env:RUN_INFERENCE_SMOKE='true'; npx nx run api:test --testPathPatterns=inference.smoke
 ```
 
-### Environment variables
+</details>
+
+<details>
+<summary><b>Environment variables</b></summary>
 
 Configuration is validated at startup; invalid values stop the API. See [.env.example](.env.example).
 
@@ -306,7 +559,11 @@ Configuration is validated at startup; invalid values stop the API. See [.env.ex
 | `DATABASE_IDLE_TIMEOUT_MS`                                                                                     | `10000`                   | Idle connections close after this long (1000 to 3600000)                                |
 | `DATABASE_STATEMENT_TIMEOUT_MS`                                                                                | `30000`                   | Slower statements are cancelled and the API answers `503` (1 to 600000)                 |
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_PORT`, `POSTGRES_TEST_DB`, `POSTGRES_TEST_PORT` | see `.env.example`        | Read by `docker-compose.yml` only                                                       |
-| `ALLOWED_REPO_ROOTS`                                                                                           | empty (none allowed)      | Platform path delimiter (`;` on Windows)                                                |
+| `ALLOWED_REPO_ROOTS`                                                                                           | your home directory       | Platform path delimiter (`;` on Windows); a missing folder allows nothing               |
+| `ALLOWED_DOCUMENT_ROOTS`                                                                                       | your home directory       | Same rules as `ALLOWED_REPO_ROOTS`, for document folders                                |
+| `HOST_PATH_PREFIX`, `CONTAINER_PATH_PREFIX`                                                                    | unset                     | Set together by the Docker stack: host paths you paste are read from the mount          |
+| `SOURCES_DIR`                                                                                                  | your home directory       | `npm start` only: host folder mounted read-only into the API container                  |
+| `WEB_PORT`                                                                                                     | `8080`                    | `npm start` only: loopback port of the web UI                                           |
 | `REPO_REQUIRE_GIT_DIR`                                                                                         | `true`                    | Require a `.git` directory when registering a repository                                |
 | `INFERENCE_PROVIDER`                                                                                           | `local`                   | Only `local` exists; any other value stops the API                                      |
 | `INFERENCE_RUNTIME`                                                                                            | `ollama`                  | Selects the runtime adapters; only `ollama` exists                                      |
@@ -344,6 +601,8 @@ Configuration is validated at startup; invalid values stop the API. See [.env.ex
 | `CHAT_TEMPERATURE`                                                                                             | `0.1`                     | Sampling temperature for answers and rewrites (0 to 2)                                  |
 | `CHAT_REWRITE_FOLLOW_UPS`                                                                                      | `true`                    | Rewrite follow-ups into a standalone retrieval query with one extra model call          |
 | `CHAT_RETENTION_DAYS`                                                                                          | unset (keep)              | Delete conversations not updated for this many days                                     |
+
+</details>
 
 ## Contributing
 

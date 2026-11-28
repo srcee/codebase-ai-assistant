@@ -4,6 +4,7 @@ import {
   linkDirectory,
   makeGitRepository,
   createSandbox,
+  TEST_MISSING_ROOT,
   testConfig,
 } from '@codebase-ai/server-testing';
 import { PathPolicyService } from './path-policy.service';
@@ -115,11 +116,11 @@ describe('PathPolicyService', () => {
       await expectRejected(join(sandbox, 'root-evil'), 'outside-allowed-roots');
     });
 
-    it('rejects everything when no roots are configured', async () => {
+    it('rejects everything when the only root is missing', async () => {
       await expectRejected(
         join(root, 'repo'),
         'outside-allowed-roots',
-        policy({ ALLOWED_REPO_ROOTS: '' }),
+        policy({ ALLOWED_REPO_ROOTS: TEST_MISSING_ROOT }),
       );
     });
 
@@ -267,9 +268,52 @@ describe('PathPolicyService', () => {
     expect(missing.message).toBe(escaped.message);
   });
 
+  describe('host path mapping', () => {
+    const itOnPosix = process.platform === 'win32' ? it.skip : it;
+    const mapped = () =>
+      policy({
+        HOST_PATH_PREFIX: 'C:\\Users\\bob',
+        CONTAINER_PATH_PREFIX: root,
+      });
+
+    itOnPosix('resolves a host path through the mapping', async () => {
+      await expect(mapped().resolve('C:\\Users\\bob\\repo')).resolves.toEqual({
+        canonicalPath: join(root, 'repo'),
+        relativePath: 'repo',
+      });
+    });
+
+    itOnPosix('still rejects a mapped path that escapes the root', async () => {
+      await expectRejected(
+        'C:\\Users\\bob\\escape',
+        'outside-allowed-roots',
+        mapped(),
+      );
+      await expectRejected(
+        'C:\\Users\\bob\\repo\\..\\..\\outside',
+        'invalid-path',
+        mapped(),
+      );
+    });
+
+    it('reports a Windows path outside the mapped prefix as outside the roots', async () => {
+      await expectRejected(
+        'D:\\code\\repo',
+        'outside-allowed-roots',
+        policy({
+          HOST_PATH_PREFIX: 'C:\\Users\\bob',
+          CONTAINER_PATH_PREFIX: '/sources',
+        }),
+      );
+    });
+  });
+
   describe('document folders', () => {
     const documents = () =>
-      policy({ ALLOWED_REPO_ROOTS: '', ALLOWED_DOCUMENT_ROOTS: root });
+      policy({
+        ALLOWED_REPO_ROOTS: TEST_MISSING_ROOT,
+        ALLOWED_DOCUMENT_ROOTS: root,
+      });
 
     it('accepts a folder without .git inside a document root', async () => {
       await expect(
