@@ -3,8 +3,11 @@
 ## Branches
 
 - `main` must stay green (lint, test, build pass).
-- Work on `stage-<N>/<topic>` branches, for example `stage-1/nx-workspace`.
+- Branch names are `CAA-<n>-<short-summary>`, for example `CAA-22-csv-and-xlsx-tables`. Take the next number below and update it in the same branch.
+- Docs refer to pull requests (`PR #18`), never to ticket numbers.
 - Merge to `main` via pull request or squash merge. One vertical slice per PR.
+
+Last used ticket: **CAA-21**. Next: **CAA-22**.
 
 ## Commits
 

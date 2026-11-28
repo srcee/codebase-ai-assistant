@@ -61,6 +61,6 @@ Local-first Codebase RAG Assistant that also indexes project documentation (docu
 
 ## Git
 
-- Never commit or push to `main`. Branch names: `CAA-<ticket>-<short-summary>` (for example `CAA-2-postgres-pgvector-data-layer`). Open a PR to merge.
+- Never commit or push to `main`. Branch names: `CAA-<n>-<short-summary>`; take the next number from `CONTRIBUTING.md` and update the counter there. Docs mention PR numbers, never ticket numbers. Open a PR to merge.
 - Conventional Commits (`feat(scope): ...`). One vertical slice per PR.
 - Ask before destructive actions (force push, reset --hard, deleting branches or files). Push only when asked.

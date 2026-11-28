@@ -1,6 +1,6 @@
 # 0003: Test data factories
 
-Status: accepted (CAA-4)
+Status: accepted (PR #3)
 
 ## Context
 

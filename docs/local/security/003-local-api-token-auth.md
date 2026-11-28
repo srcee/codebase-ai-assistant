@@ -1,6 +1,6 @@
 # Security 003: The local API has no authentication
 
-- **Status:** Fixed (CAA-9, decision 0007); token file is `.local/api-token.secret` instead of an OS config folder
+- **Status:** Fixed (PR #8, decision 0007); token file is `.local/api-token.secret` instead of an OS config folder
 - **Severity:** High (any local process or OS user can read indexed code and chats)
 - **Area:** `apps/api` (`configure-app.ts`, new guard), `apps/web` (API client), `libs/server/config`
 - **Target stage:** 10 (before Stage 9 UI preferred)

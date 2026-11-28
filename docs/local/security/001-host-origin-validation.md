@@ -1,6 +1,6 @@
 # Security 001: No Host/Origin check on the loopback API (DNS rebinding)
 
-- **Status:** Fixed (CAA-9, decision 0007)
+- **Status:** Fixed (PR #8, decision 0007)
 - **Severity:** High (exposure of indexed code and chat history)
 - **Area:** `apps/api` (`configure-app.ts`)
 - **Target stage:** 10 (earlier preferred)

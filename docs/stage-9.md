@@ -2,7 +2,7 @@
 
 **Goal:** Answer questions from retrieved evidence with validated citations, abstain when evidence is insufficient, and persist conversations locally.
 
-**Status:** Done (CAA-17, PR #15; CAA-18, PR #16; decision 0013). CAA-17 shipped chat, citations, abstention, conversations, and a minimal web chat ahead of Stage 17. CAA-18 added the context budget, history hygiene, follow-up rewrite, the term-coverage abstention gate, and the `unsupported` status. The chat evaluation report (`chat-stage9-baseline` vs `chat-stage9`) is a follow-up: [improvement 011](local/improvements/011-chat-evaluation-report.md).
+**Status:** Done (PR #15, PR #16; decision 0013). PR #15 shipped chat, citations, abstention, conversations, and a minimal web chat ahead of Stage 17. PR #16 added the context budget, history hygiene, follow-up rewrite, the term-coverage abstention gate, and the `unsupported` status. The chat evaluation reports `chat-stage-9-baseline` and `chat-stage-9` are committed but were run with `qwen2.5-coder:3b`; the 7b rerun and threshold tuning are open in [improvement 011](local/improvements/011-chat-evaluation-report.md).
 
 **Prerequisites:** Stages 5, 7, and 8 (sources, projects, locators).
 

@@ -1,6 +1,6 @@
 # 0004: Ingestion discovery and chunking
 
-Status: accepted (CAA-5)
+Status: accepted (PR #4)
 
 ## Context
 

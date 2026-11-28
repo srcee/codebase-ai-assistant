@@ -2,7 +2,7 @@
 
 **Goal:** Safely register, list, inspect, and remove local repositories.
 
-**Status:** Done (CAA-3, PR #2)
+**Status:** Done (PR #2)
 
 **Prerequisites:** Stage 2.
 

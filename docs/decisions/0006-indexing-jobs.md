@@ -1,6 +1,6 @@
 # 0006: Indexing jobs and incremental updates
 
-Status: accepted (CAA-7)
+Status: accepted (PR #6)
 
 ## Context
 
