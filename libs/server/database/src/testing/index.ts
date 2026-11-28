@@ -1,5 +1,6 @@
 export * from './factories/chunk.factory';
 export * from './factories/conversation.factory';
+export * from './factories/document.factory';
 export * from './factories/index-job.factory';
 export * from './factories/message.factory';
 export * from './factories/message-citation.factory';

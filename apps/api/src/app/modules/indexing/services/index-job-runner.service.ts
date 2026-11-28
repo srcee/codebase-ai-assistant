@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import type { IndexJobResponse, SourceKind } from '@codebase-ai/contracts';
 import { APP_CONFIG, type AppConfig } from '@codebase-ai/server-config';
-import { DocumentDiscoveryService } from '../../document-ingestion/services/document-discovery.service';
+import { CollectionDiscoveryService } from '../../document-ingestion/services/collection-discovery.service';
 import { EmbeddingsService } from '../../embeddings/services/embeddings.service';
 import { FileDiscoveryService } from '../../ingestion/services/file-discovery.service';
 import type { SkippedEntry } from '../../ingestion/types/discovery-entry';
@@ -72,7 +72,7 @@ export class IndexJobRunnerService implements BeforeApplicationShutdown {
     private readonly files: FileIndexerService,
     private readonly documents: DocumentIndexerService,
     private readonly discovery: FileDiscoveryService,
-    private readonly documentDiscovery: DocumentDiscoveryService,
+    private readonly documentDiscovery: CollectionDiscoveryService,
     private readonly embeddings: EmbeddingsService,
   ) {}
 
@@ -199,12 +199,13 @@ export class IndexJobRunnerService implements BeforeApplicationShutdown {
       this.files.recordSkipped(context, entry);
     return source.kind === 'code_repository'
       ? workItems(
-          this.discovery.discover(source.canonicalPath),
+          // The sources CHECK guarantees a path for repositories.
+          this.discovery.discover(source.canonicalPath ?? ''),
           (file) => this.files.indexFile(context, file),
           recordSkipped,
         )
       : workItems(
-          this.documentDiscovery.discover(source.canonicalPath),
+          this.documentDiscovery.discover(source),
           (file) => this.documents.indexDocument(context, file),
           recordSkipped,
         );

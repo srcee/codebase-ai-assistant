@@ -21,7 +21,10 @@ export class DocumentCollectionsController {
   create(
     @Body() body: CreateDocumentCollectionDto,
   ): Promise<DocumentCollectionResponse> {
-    return this.collections.register(body);
+    // Validation allows a path for folder collections only.
+    return body.path === undefined
+      ? this.collections.registerUpload(body.name)
+      : this.collections.registerFolder(body.name, body.path);
   }
 
   @Get()

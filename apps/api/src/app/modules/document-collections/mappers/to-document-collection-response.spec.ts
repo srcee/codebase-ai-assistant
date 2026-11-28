@@ -21,7 +21,7 @@ describe('toDocumentCollectionResponse', () => {
   it('never exposes the canonical path or the privacy mode', () => {
     const row = folderCollectionFactory.build();
     const response = toDocumentCollectionResponse(row, null);
-    assertNotLeaked(response, row.canonicalPath);
+    assertNotLeaked(response, String(row.canonicalPath));
     expect(response).not.toHaveProperty('privacyMode');
     expect(response.relativePath).toBeNull();
   });

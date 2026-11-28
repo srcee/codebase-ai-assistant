@@ -122,6 +122,8 @@ const envSchema = z
       .min(1024)
       .max(1024 * 1024 * 1024)
       .default(50 * 1024 * 1024),
+    DATA_DIR: z.string().min(1).default('.local/data'),
+    UPLOAD_MAX_FILES: z.coerce.number().int().min(1).max(1000).default(100),
     PARSE_WORKERS: z.coerce.number().int().min(1).max(16).optional(),
     PARSE_INLINE_MAX_BYTES: z.coerce
       .number()
@@ -318,6 +320,10 @@ export interface IndexingConfig {
 export interface DocumentsConfig {
   /** Larger documents are skipped with the reason too-large. */
   maxBytes: number;
+  /** Absolute directory for uploaded originals and upload temp files. */
+  dataDir: string;
+  /** Files accepted in one upload request. */
+  uploadMaxFiles: number;
 }
 
 export interface ParsingConfig {
@@ -427,6 +433,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     },
     documents: {
       maxBytes: e.DOCUMENT_MAX_BYTES,
+      dataDir: resolve(e.DATA_DIR),
+      uploadMaxFiles: e.UPLOAD_MAX_FILES,
     },
     parsing: {
       workers: e.PARSE_WORKERS ?? defaultParseWorkers(),

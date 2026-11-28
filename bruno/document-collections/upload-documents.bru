@@ -1,0 +1,30 @@
+meta {
+  name: Upload documents
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/document-collections/{{uploadCollectionId}}/documents
+  body: multipartForm
+  auth: inherit
+}
+
+body:multipart-form {
+  path: workflows/refund-approval.md
+  file: @file(../libs/server/testing/eval/documents/corpus/workflows/refund-approval.md)
+  path: security/two-factor.md
+  file: @file(../libs/server/testing/eval/documents/corpus/security/two-factor.md)
+}
+
+vars:post-response {
+  documentId: res.body.stored[0]?.id ?? res.body.unchanged[0]?.id
+}
+
+assert {
+  res.status: eq 201
+}
+
+docs {
+  Each `file` part needs a `path` field directly before it. The response lists stored, unchanged, and skipped documents and the started sync job; poll the latest sync job before uploading again (409 while it runs).
+}

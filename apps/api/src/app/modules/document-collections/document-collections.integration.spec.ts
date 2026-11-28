@@ -108,6 +108,20 @@ describeWithDatabase('document collections API', (baseUrl) => {
       assertNotLeaked(response.body, documentsRoot);
     });
 
+    it('registers an upload collection without a path', async () => {
+      const response = await register({
+        name: 'Uploads',
+        origin: 'upload',
+      }).expect(201);
+      expect(response.body).toMatchObject({
+        name: 'Uploads',
+        origin: 'upload',
+        relativePath: null,
+        status: 'registered',
+      });
+      await register({ name: 'Uploads', origin: 'upload' }).expect(201);
+    });
+
     it('lists only document collections, ordered by name', async () => {
       await registerFolder('specs', 'Specs');
       await registerFolder('guides', 'Guides');
@@ -200,7 +214,15 @@ describeWithDatabase('document collections API', (baseUrl) => {
           path: join(documentsRoot, 'specs'),
         }),
       ],
-      ['an upload origin', () => ({ name: 'uploads', origin: 'upload' })],
+      [
+        'an upload origin with a path',
+        () => ({
+          name: 'uploads',
+          origin: 'upload',
+          path: join(documentsRoot, 'specs'),
+        }),
+      ],
+      ['an unknown origin', () => ({ name: 'remote', origin: 'remote' })],
       ['no path', () => ({ name: 'specs', origin: 'folder' })],
       [
         'an unknown field',

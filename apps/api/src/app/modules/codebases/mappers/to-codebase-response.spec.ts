@@ -35,7 +35,7 @@ describe('toCodebaseResponse', () => {
     const row = sourceFactory.build();
     const response = toCodebaseResponse(row, faker.word.noun());
 
-    assertNotLeaked(response, row.canonicalPath);
+    assertNotLeaked(response, String(row.canonicalPath));
     expect(Object.keys(response).sort()).toEqual(
       Object.keys(codebaseResponseFactory.build()).sort(),
     );

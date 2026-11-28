@@ -29,6 +29,13 @@
       "when": 1794735606574,
       "tag": "0003_message_status_unsupported",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1795783922881,
+      "tag": "0004_upload_documents",
+      "breakpoints": true
     }
   ]
 }

@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { and, asc, desc, eq, inArray, type SQL, sql } from 'drizzle-orm';
 import type {
+  DocumentOrigin,
   IndexedFileIssue,
   LatestIndexJobResponse,
   SourceKind,
@@ -31,7 +32,9 @@ const INTERRUPTED_SUMMARY = 'Interrupted by an API restart.';
 export interface IndexSource {
   id: string;
   kind: SourceKind;
-  canonicalPath: string;
+  origin: DocumentOrigin | null;
+  /** Null only for upload collections. */
+  canonicalPath: string | null;
 }
 
 export interface CreatedIndexJob {
@@ -93,6 +96,7 @@ export class IndexJobsService implements OnApplicationBootstrap {
         .select({
           id: sources.id,
           kind: sources.kind,
+          origin: sources.origin,
           canonicalPath: sources.canonicalPath,
         })
         .from(sources)

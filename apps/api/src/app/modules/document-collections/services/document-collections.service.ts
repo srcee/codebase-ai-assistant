@@ -6,14 +6,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { and, asc, eq } from 'drizzle-orm';
-import type {
-  CreateDocumentCollectionRequest,
-  DocumentCollectionResponse,
-} from '@codebase-ai/contracts';
+import type { DocumentCollectionResponse } from '@codebase-ai/contracts';
 import { DatabaseService, schema } from '@codebase-ai/server-database';
 import { PathRejectedError } from '../../codebases/errors/path-rejected.error';
 import { PathPolicyService } from '../../codebases/services/path-policy.service';
 import { relativeToAnyRoot } from '../../codebases/utils/relative-within';
+import { BlobStoreService } from '../../document-ingestion/services/blob-store.service';
 import { toDocumentCollectionResponse } from '../mappers/to-document-collection-response';
 
 const { sources } = schema;
@@ -30,14 +28,16 @@ export class DocumentCollectionsService {
   constructor(
     private readonly database: DatabaseService,
     private readonly pathPolicy: PathPolicyService,
+    private readonly blobs: BlobStoreService,
   ) {}
 
   /** The folder must sit inside ALLOWED_DOCUMENT_ROOTS; it is mirrored, never copied. */
-  async register(
-    request: CreateDocumentCollectionRequest,
+  async registerFolder(
+    name: string,
+    path: string,
   ): Promise<DocumentCollectionResponse> {
     const resolved = await this.pathPolicy
-      .resolve(request.path, 'document_collection')
+      .resolve(path, 'document_collection')
       .catch((error) => {
         if (error instanceof PathRejectedError) {
           throw new BadRequestException(error.message);
@@ -48,9 +48,9 @@ export class DocumentCollectionsService {
     const [row] = await this.database.db
       .insert(sources)
       .values({
-        name: request.name,
+        name,
         kind: 'document_collection',
-        origin: request.origin,
+        origin: 'folder',
         canonicalPath: resolved.canonicalPath,
       })
       .onConflictDoNothing({ target: sources.canonicalPath })
@@ -60,6 +60,16 @@ export class DocumentCollectionsService {
     }
     this.logger.log(`Document collection registered id=${row.id}`);
     return toDocumentCollectionResponse(row, resolved.relativePath);
+  }
+
+  /** Documents are added later through the upload endpoint; their originals live in DATA_DIR. */
+  async registerUpload(name: string): Promise<DocumentCollectionResponse> {
+    const [row] = await this.database.db
+      .insert(sources)
+      .values({ name, kind: 'document_collection', origin: 'upload' })
+      .returning();
+    this.logger.log(`Upload collection registered id=${row.id}`);
+    return toDocumentCollectionResponse(row, null);
   }
 
   async list(): Promise<DocumentCollectionResponse[]> {
@@ -92,13 +102,14 @@ export class DocumentCollectionsService {
     );
   }
 
-  /** Foreign keys cascade the delete to files, chunks, jobs, and project links; a running sync stops before its next file. */
+  /** Foreign keys cascade the delete to files, chunks, documents, jobs, and project links; a running sync stops before its next file. */
   async remove(id: string): Promise<void> {
-    const deleted = await this.database.db
+    const [deleted] = await this.database.db
       .delete(sources)
       .where(collectionWithId(id))
-      .returning({ id: sources.id });
-    if (deleted.length === 0) throw new NotFoundException(NOT_FOUND);
+      .returning({ origin: sources.origin });
+    if (!deleted) throw new NotFoundException(NOT_FOUND);
     this.logger.log(`Document collection deleted id=${id}`);
+    if (deleted.origin === 'upload') await this.blobs.sweepQuietly();
   }
 }
