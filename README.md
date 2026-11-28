@@ -248,7 +248,7 @@ The web app (`npm run start:web`, then open http://localhost:4200) has a minimal
 
 ```powershell
 npm run db:test:up
-$env:RUN_CHAT_EVAL = 'true'; $env:EVAL_LABEL = 'stage9'
+$env:RUN_CHAT_EVAL = 'true'; $env:EVAL_LABEL = 'stage-9'
 npx nx run api:test --skip-nx-cache --testPathPatterns=chat.eval
 ```
 

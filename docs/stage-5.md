@@ -2,7 +2,7 @@
 
 **Goal:** Central egress policy and local-only embedding/LLM adapters, built before any code is embedded.
 
-**Status:** Done (CAA-6, PR #5)
+**Status:** Done (PR #5)
 
 **Prerequisites:** Stage 1 (config). Can run in parallel with Stage 4.
 

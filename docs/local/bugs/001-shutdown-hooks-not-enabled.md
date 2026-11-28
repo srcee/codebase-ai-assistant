@@ -1,6 +1,6 @@
 # Bug 001: Shutdown hooks are not enabled
 
-- **Status:** Fixed (CAA-8)
+- **Status:** Fixed (PR #7)
 - **Severity:** Medium
 - **Area:** `apps/api/src/main.ts`
 - **Target stage:** Hardening (any)

@@ -1,6 +1,6 @@
 # Improvement 002: Split health into liveness and readiness
 
-- **Status:** Partly done (CAA-9): `GET /health/live` exists; `/health` stays as the protected readiness route and is not split further
+- **Status:** Partly done (PR #8): `GET /health/live` exists; `/health` stays as the protected readiness route and is not split further
 - **Severity:** Low
 - **Area:** `apps/api/src/app/modules/health`, `libs/shared/contracts`, `apps/web`
 - **Target stage:** Hardening (any)

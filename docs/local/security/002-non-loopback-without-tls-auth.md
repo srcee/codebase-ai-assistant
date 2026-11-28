@@ -1,6 +1,6 @@
 # Security 002: `API_ALLOW_NON_LOOPBACK` exposes the API without TLS or authentication
 
-- **Status:** Fixed (CAA-9): option 1, the flag is removed
+- **Status:** Fixed (PR #8): option 1, the flag is removed
 - **Severity:** High when enabled; none in the default setup
 - **Area:** `apps/api/src/main.ts`, `libs/server/config`
 - **Target stage:** 10

@@ -2,7 +2,7 @@
 
 **Goal:** Local PostgreSQL with pgvector, chosen data-access approach, migrations, and the initial schema.
 
-**Status:** Done (CAA-2, PR #1)
+**Status:** Done (PR #1)
 
 **Prerequisites:** Stage 1.
 

@@ -1,6 +1,6 @@
 # 0005: Models, egress policy, and runtime adapters
 
-Status: accepted (CAA-6)
+Status: accepted (PR #5)
 
 ## Context
 

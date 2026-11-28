@@ -2,7 +2,7 @@
 
 **Goal:** Index a registered repository end to end: discover, chunk, embed, persist; re-index incrementally and idempotently.
 
-**Status:** Done (CAA-7, PR #6). Follow-ups: shutdown hooks (PR #7)
+**Status:** Done (PR #6). Follow-ups: shutdown hooks (PR #7)
 
 **Prerequisites:** Stages 2, 3, 4, 5.
 

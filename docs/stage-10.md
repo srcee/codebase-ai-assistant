@@ -2,7 +2,7 @@
 
 **Goal:** Register document collections from a local folder or by upload, keep them in sync with one action, parse in a worker pool, and index Markdown and plain text with heading-aware chunks.
 
-**Status:** In progress. CAA-19 adds folder collections, the parsing worker pool, Markdown and TXT chunking, sync, change checks, project sync, and the document evaluation (`libs/server/testing/eval/reports/documents-stage10.md`). CAA-20 adds upload collections, the local blob store, and document upload and delete. Document collections in the web scope picker follow in CAA-21.
+**Status:** In progress. PR #17 added folder collections, the parsing worker pool, Markdown and TXT chunking, sync, change checks, project sync, and the document evaluation (`libs/server/testing/eval/reports/documents-stage10.md`). PR #18 added upload collections, the local blob store, and document upload and delete. Document collections in the web scope picker are still open.
 
 **Prerequisites:** Stages 8 and 9.
 

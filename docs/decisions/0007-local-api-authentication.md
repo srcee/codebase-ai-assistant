@@ -1,6 +1,6 @@
 # 0007: Local API authentication
 
-Status: accepted (CAA-9)
+Status: accepted (PR #8)
 
 ## Context
 

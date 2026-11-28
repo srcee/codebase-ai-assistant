@@ -1,6 +1,6 @@
 # Improvement 001: Logging
 
-- **Status:** Fixed (CAA-10); no audit line for conversations yet because chat does not exist
+- **Status:** Fixed (PR #9); no audit line for conversations yet because chat does not exist
 - **Severity:** Medium
 - **Area:** `apps/api` (`main.ts`, new interceptor/middleware), `libs/server/config`
 - **Target stage:** Hardening (any)
