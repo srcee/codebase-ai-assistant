@@ -3,7 +3,7 @@ import type {
   LatestIndexJobResponse,
   UploadDocumentsResponse,
 } from '@codebase-ai/contracts';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import {
   codebaseResponseFactory,
   documentCollectionResponseFactory,
@@ -12,6 +12,7 @@ import {
   indexJobResponseFactory,
 } from '@codebase-ai/shared-testing';
 import { json, mockApi } from '../testing/mock-api';
+import { render } from '../testing/render';
 import App from './app';
 import { POLL_INTERVAL_MS } from './hooks/use-index-job';
 

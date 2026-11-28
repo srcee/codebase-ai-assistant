@@ -2,8 +2,11 @@ import type {
   CodebaseResponse,
   CreateCodebaseRequest,
 } from '@codebase-ai/contracts';
+import { Alert, Button, Group, Text, TextInput } from '@mantine/core';
+import { IconAlertCircle, IconFolder, IconPlus } from '@tabler/icons-react';
 import { useState, type FormEvent } from 'react';
 import { errorMessage, sendJson } from '../api/http';
+import classes from './register-form.module.css';
 
 interface RegisterRepositoryFormProps {
   onRegistered: () => void;
@@ -38,30 +41,42 @@ export function RegisterRepositoryForm({
 
   return (
     <form
-      className="register"
       aria-label="Register a repository"
       onSubmit={(event) => void submit(event)}
     >
-      <label className="field">
-        <span>Repository path</span>
-        <input
+      <Text fw={600} size="sm" mb="sm">
+        Register a repository
+      </Text>
+      <Group align="flex-end" gap="sm">
+        <TextInput
+          label="Repository path"
           value={path}
           required
+          withAsterisk={false}
           placeholder="Absolute path inside ALLOWED_REPO_ROOTS"
-          onChange={(event) => setPath(event.target.value)}
+          leftSection={<IconFolder size={16} />}
+          onChange={(event) => setPath(event.currentTarget.value)}
+          className={classes.wide}
         />
-      </label>
-      <label className="field">
-        <span>Repository name (optional)</span>
-        <input value={name} onChange={(event) => setName(event.target.value)} />
-      </label>
-      <button type="submit" disabled={busy || !path.trim()}>
-        Register repository
-      </button>
+        <TextInput
+          label="Repository name (optional)"
+          value={name}
+          onChange={(event) => setName(event.currentTarget.value)}
+          className={classes.narrow}
+        />
+        <Button
+          type="submit"
+          loading={busy}
+          disabled={!path.trim()}
+          leftSection={<IconPlus size={16} />}
+        >
+          Register repository
+        </Button>
+      </Group>
       {error && (
-        <p role="alert" className="error">
+        <Alert role="alert" color="red" mt="sm" icon={<IconAlertCircle />}>
           {error}
-        </p>
+        </Alert>
       )}
     </form>
   );

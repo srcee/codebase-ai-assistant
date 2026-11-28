@@ -92,9 +92,12 @@
     "webpack-dev-server": "5.2.7"
   },
   "dependencies": {
+    "@mantine/core": "9.8.3",
+    "@mantine/hooks": "9.8.3",
     "@nestjs/common": "11.2.7",
     "@nestjs/core": "11.2.7",
     "@nestjs/platform-express": "11.2.7",
+    "@tabler/icons-react": "3.53.0",
     "busboy": "1.6.0",
     "class-transformer": "0.5.1",
     "class-validator": "0.15.1",

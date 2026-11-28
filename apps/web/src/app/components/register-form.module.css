@@ -1,0 +1,11 @@
+.wide {
+  flex: 2 1 18rem;
+}
+
+.narrow {
+  flex: 1 1 12rem;
+}
+
+.wide input {
+  font-family: var(--mantine-font-family-monospace);
+}

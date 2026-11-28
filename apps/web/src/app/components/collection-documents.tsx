@@ -1,7 +1,23 @@
 import type { UploadSkipReason } from '@codebase-ai/contracts';
+import {
+  Alert,
+  Button,
+  Group,
+  List,
+  Progress,
+  Stack,
+  Text,
+} from '@mantine/core';
+import {
+  IconAlertCircle,
+  IconCircleCheck,
+  IconCloudUpload,
+  IconFileText,
+} from '@tabler/icons-react';
 import { useState, type DragEvent } from 'react';
 import { useCollectionDocuments } from '../hooks/use-collection-documents';
 import { formatBytes } from '../utils/format-bytes';
+import classes from './collection-documents.module.css';
 import { ConfirmButton } from './confirm-button';
 
 interface CollectionDocumentsProps {
@@ -36,9 +52,11 @@ export function CollectionDocuments({
   };
 
   return (
-    <div className="documents">
+    <Stack gap="sm">
       <div
-        className={dragging ? 'dropzone dropzone--active' : 'dropzone'}
+        className={classes.dropzone}
+        data-active={dragging || undefined}
+        data-disabled={blocked || undefined}
         onDragOver={(event) => {
           event.preventDefault();
           setDragging(true);
@@ -46,11 +64,20 @@ export function CollectionDocuments({
         onDragLeave={() => setDragging(false)}
         onDrop={onDrop}
       >
-        <label>
-          Drop files here or{' '}
+        <IconCloudUpload
+          size={28}
+          stroke={1.5}
+          className={classes.dropIcon}
+          aria-hidden
+        />
+        <label className={classes.dropLabel}>
+          <Text size="sm" span>
+            Drop files here or <span className={classes.browse}>browse</span>
+          </Text>
           <input
             type="file"
             multiple
+            className={classes.fileInput}
             aria-label={`Upload files to ${collectionName}`}
             disabled={blocked}
             onChange={(event) => {
@@ -60,46 +87,60 @@ export function CollectionDocuments({
             }}
           />
         </label>
-        {syncing && <p className="muted">Uploads wait until the sync ends.</p>}
+        {syncing && (
+          <Text size="xs" c="dimmed">
+            Uploads wait until the sync ends.
+          </Text>
+        )}
       </div>
       {uploading && (
-        <progress
+        <Progress
           aria-label="Upload progress"
-          value={documents.progress ?? 0}
-          max={1}
+          value={(documents.progress ?? 0) * 100}
+          animated
         />
       )}
       {documents.result && (
-        <div role="status">
-          <p>
+        <Alert role="status" color="green" icon={<IconCircleCheck />} p="sm">
+          <Text size="sm">
             Stored {documents.result.stored.length}, unchanged{' '}
             {documents.result.unchanged.length}, skipped{' '}
             {documents.result.skipped.length}.
-          </p>
+          </Text>
           {documents.result.skipped.length > 0 && (
-            <ul aria-label="Skipped uploads">
+            <List size="xs" mt={4} aria-label="Skipped uploads">
               {documents.result.skipped.map((skip) => (
-                <li key={skip.logicalPath}>
+                <List.Item key={skip.logicalPath}>
                   {skip.logicalPath}: {SKIP_REASONS[skip.reason]}
-                </li>
+                </List.Item>
               ))}
-            </ul>
+            </List>
           )}
-        </div>
+        </Alert>
       )}
       {documents.error && (
-        <p role="alert" className="error">
+        <Alert role="alert" color="red" icon={<IconAlertCircle />} p="sm">
           {documents.error}
-        </p>
+        </Alert>
       )}
       {documents.items.length === 0 ? (
-        <p className="muted">No documents yet.</p>
+        <Text size="sm" c="dimmed">
+          No documents yet.
+        </Text>
       ) : (
-        <ul aria-label={`Documents in ${collectionName}`} className="rows">
+        <ul
+          aria-label={`Documents in ${collectionName}`}
+          className={classes.rows}
+        >
           {documents.items.map((document) => (
-            <li key={document.id}>
-              <span>{document.logicalPath}</span>
-              <span className="muted">{formatBytes(document.sizeBytes)}</span>
+            <li key={document.id} className={classes.row}>
+              <IconFileText size={16} stroke={1.6} aria-hidden />
+              <Text size="sm" ff="monospace" className={classes.path}>
+                {document.logicalPath}
+              </Text>
+              <Text size="xs" c="dimmed">
+                {formatBytes(document.sizeBytes)}
+              </Text>
               <ConfirmButton
                 label={`Delete ${document.logicalPath}`}
                 disabled={blocked}
@@ -110,10 +151,12 @@ export function CollectionDocuments({
         </ul>
       )}
       {documents.hasMore && (
-        <button type="button" onClick={documents.loadMore}>
-          More documents
-        </button>
+        <Group>
+          <Button variant="subtle" size="xs" onClick={documents.loadMore}>
+            More documents
+          </Button>
+        </Group>
       )}
-    </div>
+    </Stack>
   );
 }

@@ -1,4 +1,7 @@
+import { Button, Group, Text, Textarea } from '@mantine/core';
+import { IconPlayerStopFilled, IconSend } from '@tabler/icons-react';
 import { type FormEvent, type KeyboardEvent, useState } from 'react';
+import classes from './composer.module.css';
 
 export const MAX_QUESTION_CHARS = 4000;
 
@@ -33,29 +36,50 @@ export function Composer({ disabled, busy, onSend, onStop }: ComposerProps) {
   };
 
   return (
-    <form className="composer" onSubmit={submit}>
-      <textarea
+    <form className={classes.composer} onSubmit={submit}>
+      <Textarea
+        variant="unstyled"
         aria-label="Question"
-        placeholder="Ask a question (Enter to send, Shift+Enter for a new line)"
+        placeholder={
+          disabled
+            ? 'Choose what to ask about first'
+            : 'Ask a question (Enter to send, Shift+Enter for a new line)'
+        }
         value={question}
-        rows={3}
-        onChange={(event) => setQuestion(event.target.value)}
+        autosize
+        minRows={2}
+        maxRows={10}
+        onChange={(event) => setQuestion(event.currentTarget.value)}
         onKeyDown={onKeyDown}
+        classNames={{ input: classes.input }}
       />
-      <div className="composer__actions">
-        <span className="muted">
+      <Group justify="space-between" wrap="nowrap">
+        <Text
+          size="xs"
+          c={question.length > MAX_QUESTION_CHARS ? 'red' : 'dimmed'}
+        >
           {question.length}/{MAX_QUESTION_CHARS}
-        </span>
+        </Text>
         {busy ? (
-          <button type="button" onClick={onStop}>
+          <Button
+            type="button"
+            color="red"
+            variant="light"
+            leftSection={<IconPlayerStopFilled size={14} />}
+            onClick={onStop}
+          >
             Stop
-          </button>
+          </Button>
         ) : (
-          <button type="submit" disabled={!canSend}>
+          <Button
+            type="submit"
+            disabled={!canSend}
+            rightSection={<IconSend size={16} />}
+          >
             Send
-          </button>
+          </Button>
         )}
-      </div>
+      </Group>
     </form>
   );
 }

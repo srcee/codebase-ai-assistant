@@ -1,0 +1,15 @@
+.issues {
+  font-size: var(--mantine-font-size-sm);
+}
+
+.issues summary {
+  cursor: pointer;
+  color: var(--mantine-color-dimmed);
+}
+
+.issues ul {
+  margin: var(--mantine-spacing-xs) 0 0;
+  padding-left: 1.1rem;
+  font-family: var(--mantine-font-family-monospace);
+  font-size: var(--mantine-font-size-xs);
+}

@@ -73,6 +73,7 @@ export default defineConfig(() => ({
     restoreMocks: true,
     clearMocks: true,
     unstubGlobals: true,
+    setupFiles: ['src/testing/setup.ts'],
     include: ['{src,tests}/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
     reporters: ['default'],
     coverage: {

@@ -2,19 +2,11 @@
 
 **Goal:** Usable React interface for projects, code and document sources, sync and indexing status, chat with scope selection, and source inspection.
 
-**Status:** In progress (part 1). Stage 9 added a minimal chat: scope picker, streaming answers with citations, abstention display, conversation list. PR #21 added the sources view (tasks 3 and 4) and `GET /document-collections/:id/documents`.
+**Status:** Not started (Stage 9 added a minimal chat: scope picker, streaming answers with citations, abstention display, conversation list; it is the starting point here)
 
-**Prerequisites:** Part 1: Stages 8-10. Part 2: Stages 11-16.
+**Prerequisites:** Stages 8-16 (API complete).
 
-The stage is split so the UI is usable for code and text documents before the remaining formats land:
-
-- **Part 1** (after Stage 10): tasks 1-5, 7, 8, and task 6 for `lines` and `section` locators, with the API additions below and [security 005](local/security/005-safe-rendering-of-model-output.md).
-- **Part 2** (after Stage 16): task 6 for `page`, `table_rows`, `schema_entity`, and `image` locators, `GET /documents/:id/preview`, and the e2e flow over every citation kind ([improvement 009](local/improvements/009-required-e2e.md)).
-
-Part 1 API additions:
-
-- `GET /document-collections/:id/documents` (paginated) for the upload collection file list.
-- `GET /chunks/:id` with the chat scope (`sourceIds` or `projectId`); the chunk is returned only if its source is in scope, checked in SQL.
+The UI is built with Mantine and Tabler icons ([decision 0015](decisions/0015-web-ui-component-library.md)); new views use those components and the theme instead of custom CSS.
 
 ## Tasks
 
