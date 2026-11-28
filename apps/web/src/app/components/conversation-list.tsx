@@ -1,4 +1,7 @@
 import type { ConversationSummary } from '@codebase-ai/contracts';
+import { ActionIcon, Button, Text, UnstyledButton } from '@mantine/core';
+import { IconMessage, IconTrash } from '@tabler/icons-react';
+import classes from './conversation-list.module.css';
 
 interface ConversationListProps {
   items: ConversationSummary[];
@@ -18,36 +21,49 @@ export function ConversationList({
   onLoadMore,
 }: ConversationListProps) {
   return (
-    <nav aria-label="Conversations" className="conversations">
-      {items.length === 0 && <p className="muted">No conversations yet.</p>}
-      <ul>
+    <nav aria-label="Conversations">
+      {items.length === 0 && (
+        <Text size="sm" c="dimmed" px="xs">
+          No conversations yet.
+        </Text>
+      )}
+      <ul className={classes.list}>
         {items.map((conversation) => (
           <li
             key={conversation.id}
-            className={conversation.id === activeId ? 'active' : undefined}
+            className={classes.item}
+            data-active={conversation.id === activeId || undefined}
           >
-            <button
-              type="button"
-              className="link"
+            <UnstyledButton
+              className={classes.open}
               onClick={() => onOpen(conversation)}
             >
-              {conversation.title}
-            </button>
-            <button
-              type="button"
-              className="icon"
+              <IconMessage size={16} stroke={1.6} aria-hidden />
+              <span className={classes.title}>{conversation.title}</span>
+            </UnstyledButton>
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              size="sm"
+              className={classes.delete}
               aria-label={`Delete ${conversation.title}`}
               onClick={() => onDelete(conversation.id)}
             >
-              ×
-            </button>
+              <IconTrash size={14} />
+            </ActionIcon>
           </li>
         ))}
       </ul>
       {hasMore && (
-        <button type="button" onClick={onLoadMore}>
+        <Button
+          variant="subtle"
+          size="xs"
+          fullWidth
+          mt="xs"
+          onClick={onLoadMore}
+        >
           Load more
-        </button>
+        </Button>
       )}
     </nav>
   );

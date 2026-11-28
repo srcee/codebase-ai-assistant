@@ -1,4 +1,6 @@
 import type { HealthResponse } from '@codebase-ai/contracts';
+import { Alert, Badge, List } from '@mantine/core';
+import { IconAlertTriangle } from '@tabler/icons-react';
 import type { HealthState } from '../hooks/use-health';
 
 function problems(health: HealthResponse): string[] {
@@ -18,19 +20,43 @@ function problems(health: HealthResponse): string[] {
   return found;
 }
 
-export function HealthBanner({ state }: { state: HealthState }) {
-  const details = 'health' in state ? problems(state.health) : [];
-  const warn = state.status === 'unreachable' || state.status === 'degraded';
+const STATUS_COLORS: Record<HealthState['status'], string> = {
+  checking: 'gray',
+  ok: 'green',
+  degraded: 'yellow',
+  unreachable: 'red',
+};
+
+export function HealthStatus({ state }: { state: HealthState }) {
   return (
-    <div className={warn ? 'health health--warn' : 'health'}>
-      <span role="status">API status: {state.status}</span>
-      {details.length > 0 && (
-        <ul>
-          {details.map((detail) => (
-            <li key={detail}>{detail}</li>
-          ))}
-        </ul>
-      )}
-    </div>
+    <Badge
+      variant="dot"
+      color={STATUS_COLORS[state.status]}
+      size="lg"
+      tt="none"
+      fw={500}
+      role="status"
+    >
+      API status: {state.status}
+    </Badge>
+  );
+}
+
+export function HealthProblems({ state }: { state: HealthState }) {
+  const details = 'health' in state ? problems(state.health) : [];
+  if (details.length === 0) return null;
+  return (
+    <Alert
+      role="status"
+      color="yellow"
+      title="Some local services need attention"
+      icon={<IconAlertTriangle />}
+    >
+      <List size="sm">
+        {details.map((detail) => (
+          <List.Item key={detail}>{detail}</List.Item>
+        ))}
+      </List>
+    </Alert>
   );
 }

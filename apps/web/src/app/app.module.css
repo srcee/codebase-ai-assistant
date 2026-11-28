@@ -1,0 +1,42 @@
+.navLink {
+  border-radius: var(--mantine-radius-md);
+}
+
+.navScroll {
+  min-height: 0;
+  overflow-y: auto;
+  margin-inline: calc(var(--mantine-spacing-xs) * -1);
+  padding-inline: var(--mantine-spacing-xs);
+}
+
+.chat {
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - var(--app-shell-header-offset, 0rem));
+}
+
+.chatScroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.chatColumn {
+  width: 100%;
+  max-width: 52rem;
+  margin-inline: auto;
+  padding: var(--mantine-spacing-lg) var(--mantine-spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--mantine-spacing-md);
+}
+
+.chatFooter {
+  border-top: 1px solid var(--mantine-color-default-border);
+  background: var(--mantine-color-body);
+}
+
+.chatFooter .chatColumn {
+  gap: 0;
+  padding-block: var(--mantine-spacing-md);
+}

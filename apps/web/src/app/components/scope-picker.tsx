@@ -3,6 +3,8 @@ import type {
   DocumentCollectionResponse,
   ProjectResponse,
 } from '@codebase-ai/contracts';
+import { NativeSelect } from '@mantine/core';
+import { IconTarget } from '@tabler/icons-react';
 import type { ChatScope } from '../types/chat-scope';
 
 interface ScopePickerProps {
@@ -13,7 +15,19 @@ interface ScopePickerProps {
   onChange: (scope: ChatScope | null) => void;
 }
 
+interface Option {
+  value: string;
+  label: string;
+}
+
 const encode = (scope: ChatScope): string => `${scope.kind}:${scope.id}`;
+
+const option =
+  (kind: ChatScope['kind']) =>
+  (item: { id: string; name: string }): Option => ({
+    value: encode({ kind, id: item.id }),
+    label: item.name,
+  });
 
 function decode(value: string): ChatScope | null {
   const [kind, id] = value.split(':');
@@ -27,42 +41,22 @@ export function ScopePicker({
   value,
   onChange,
 }: ScopePickerProps) {
+  const groups: { group: string; items: Option[] }[] = [
+    { group: 'Projects', items: projects.map(option('project')) },
+    { group: 'Repositories', items: codebases.map(option('source')) },
+    { group: 'Document collections', items: collections.map(option('source')) },
+  ].filter((group) => group.items.length > 0);
+
   return (
-    <label className="field">
-      <span>Ask about</span>
-      <select
-        value={value ? encode(value) : ''}
-        onChange={(event) => onChange(decode(event.target.value))}
-      >
-        <option value="">Choose a project, repository, or collection</option>
-        {projects.length > 0 && (
-          <optgroup label="Projects">
-            {projects.map((project) => (
-              <option key={project.id} value={`project:${project.id}`}>
-                {project.name}
-              </option>
-            ))}
-          </optgroup>
-        )}
-        {codebases.length > 0 && (
-          <optgroup label="Repositories">
-            {codebases.map((codebase) => (
-              <option key={codebase.id} value={`source:${codebase.id}`}>
-                {codebase.name}
-              </option>
-            ))}
-          </optgroup>
-        )}
-        {collections.length > 0 && (
-          <optgroup label="Document collections">
-            {collections.map((collection) => (
-              <option key={collection.id} value={`source:${collection.id}`}>
-                {collection.name}
-              </option>
-            ))}
-          </optgroup>
-        )}
-      </select>
-    </label>
+    <NativeSelect
+      label="Ask about"
+      leftSection={<IconTarget size={16} />}
+      value={value ? encode(value) : ''}
+      onChange={(event) => onChange(decode(event.currentTarget.value))}
+      data={[
+        { value: '', label: 'Choose a project, repository, or collection' },
+        ...groups,
+      ]}
+    />
   );
 }

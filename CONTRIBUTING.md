@@ -7,7 +7,7 @@
 - Docs refer to pull requests (`PR #18`), never to ticket numbers.
 - Merge to `main` via pull request or squash merge. One vertical slice per PR.
 
-Last used ticket: **CAA-23**. Next: **CAA-24**.
+Last used ticket: **CAA-24**. Next: **CAA-25**.
 
 ## Commits
 

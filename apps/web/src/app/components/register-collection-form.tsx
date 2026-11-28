@@ -3,8 +3,23 @@ import type {
   DocumentCollectionResponse,
   DocumentOrigin,
 } from '@codebase-ai/contracts';
+import {
+  Alert,
+  Button,
+  Group,
+  NativeSelect,
+  Text,
+  TextInput,
+} from '@mantine/core';
+import { IconAlertCircle, IconFolder, IconPlus } from '@tabler/icons-react';
 import { useState, type FormEvent } from 'react';
 import { errorMessage, sendJson } from '../api/http';
+import classes from './register-form.module.css';
+
+const ORIGINS: { value: DocumentOrigin; label: string }[] = [
+  { value: 'folder', label: 'A local folder' },
+  { value: 'upload', label: 'Uploaded files' },
+];
 
 interface RegisterCollectionFormProps {
   onRegistered: () => void;
@@ -47,46 +62,55 @@ export function RegisterCollectionForm({
 
   return (
     <form
-      className="register"
       aria-label="Add a document collection"
       onSubmit={(event) => void submit(event)}
     >
-      <label className="field">
-        <span>Collection name</span>
-        <input
+      <Text fw={600} size="sm" mb="sm">
+        Add a document collection
+      </Text>
+      <Group align="flex-end" gap="sm">
+        <TextInput
+          label="Collection name"
           value={name}
           required
-          onChange={(event) => setName(event.target.value)}
+          withAsterisk={false}
+          onChange={(event) => setName(event.currentTarget.value)}
+          className={classes.narrow}
         />
-      </label>
-      <label className="field">
-        <span>Documents come from</span>
-        <select
+        <NativeSelect
+          label="Documents come from"
           value={origin}
-          onChange={(event) => setOrigin(event.target.value as DocumentOrigin)}
-        >
-          <option value="folder">A local folder</option>
-          <option value="upload">Uploaded files</option>
-        </select>
-      </label>
-      {origin === 'folder' && (
-        <label className="field">
-          <span>Folder path</span>
-          <input
+          onChange={(event) =>
+            setOrigin(event.currentTarget.value as DocumentOrigin)
+          }
+          data={ORIGINS}
+          className={classes.narrow}
+        />
+        {origin === 'folder' && (
+          <TextInput
+            label="Folder path"
             value={path}
             required
+            withAsterisk={false}
             placeholder="Absolute path inside ALLOWED_DOCUMENT_ROOTS"
-            onChange={(event) => setPath(event.target.value)}
+            leftSection={<IconFolder size={16} />}
+            onChange={(event) => setPath(event.currentTarget.value)}
+            className={classes.wide}
           />
-        </label>
-      )}
-      <button type="submit" disabled={busy || !ready}>
-        Add collection
-      </button>
+        )}
+        <Button
+          type="submit"
+          loading={busy}
+          disabled={!ready}
+          leftSection={<IconPlus size={16} />}
+        >
+          Add collection
+        </Button>
+      </Group>
       {error && (
-        <p role="alert" className="error">
+        <Alert role="alert" color="red" mt="sm" icon={<IconAlertCircle />}>
           {error}
-        </p>
+        </Alert>
       )}
     </form>
   );

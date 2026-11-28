@@ -1,5 +1,5 @@
 import type { ChatRequest } from '@codebase-ai/contracts';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import {
   chatDoneEventFactory,
   codebaseResponseFactory,
@@ -11,6 +11,7 @@ import {
   projectResponseFactory,
 } from '@codebase-ai/shared-testing';
 import { eventStream, json, mockApi } from '../testing/mock-api';
+import { render } from '../testing/render';
 import App from './app';
 
 const project = projectResponseFactory.build();

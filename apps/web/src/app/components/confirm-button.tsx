@@ -1,3 +1,5 @@
+import { Button, Group } from '@mantine/core';
+import { IconTrash } from '@tabler/icons-react';
 import { useState } from 'react';
 
 interface ConfirmButtonProps {
@@ -16,21 +18,24 @@ export function ConfirmButton({
   const [asking, setAsking] = useState(false);
   if (!asking) {
     return (
-      <button
-        type="button"
+      <Button
+        variant="subtle"
+        color="red"
+        size="xs"
         aria-label={label}
         disabled={disabled}
+        leftSection={<IconTrash size={14} />}
         onClick={() => setAsking(true)}
       >
         Delete
-      </button>
+      </Button>
     );
   }
   return (
-    <span className="confirm">
-      <button
-        type="button"
-        className="danger"
+    <Group gap={4} wrap="nowrap">
+      <Button
+        color="red"
+        size="xs"
         aria-label={`Confirm: ${label}`}
         onClick={() => {
           setAsking(false);
@@ -38,10 +43,10 @@ export function ConfirmButton({
         }}
       >
         Confirm delete
-      </button>
-      <button type="button" onClick={() => setAsking(false)}>
+      </Button>
+      <Button variant="default" size="xs" onClick={() => setAsking(false)}>
         Cancel
-      </button>
-    </span>
+      </Button>
+    </Group>
   );
 }
