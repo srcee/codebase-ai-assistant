@@ -3,7 +3,7 @@ import type {
   DocumentCollectionResponse,
   ProjectResponse,
 } from '@codebase-ai/contracts';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { errorMessage, getJson } from '../api/http';
 
 export function useScopes() {
@@ -14,24 +14,26 @@ export function useScopes() {
   );
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all([
-      getJson<ProjectResponse[]>('/projects'),
-      getJson<CodebaseResponse[]>('/codebases'),
-      getJson<DocumentCollectionResponse[]>('/document-collections'),
-    ])
-      .then(([loadedProjects, loadedCodebases, loadedCollections]) => {
-        if (cancelled) return;
-        setProjects(loadedProjects);
-        setCodebases(loadedCodebases);
-        setCollections(loadedCollections);
-      })
-      .catch((caught: unknown) => !cancelled && setError(errorMessage(caught)));
-    return () => {
-      cancelled = true;
-    };
+  const reload = useCallback(async () => {
+    try {
+      const [loadedProjects, loadedCodebases, loadedCollections] =
+        await Promise.all([
+          getJson<ProjectResponse[]>('/projects'),
+          getJson<CodebaseResponse[]>('/codebases'),
+          getJson<DocumentCollectionResponse[]>('/document-collections'),
+        ]);
+      setProjects(loadedProjects);
+      setCodebases(loadedCodebases);
+      setCollections(loadedCollections);
+      setError(null);
+    } catch (caught) {
+      setError(errorMessage(caught));
+    }
   }, []);
 
-  return { projects, codebases, collections, error };
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  return { projects, codebases, collections, error, reload };
 }

@@ -1,6 +1,7 @@
 import type { ChatStreamEvent } from '@codebase-ai/contracts';
 import { healthResponseFactory } from '@codebase-ai/shared-testing';
 import { vi } from 'vitest';
+import { FakeXhr } from './fake-xhr';
 
 type Handler = (init: RequestInit | undefined, url: string) => Response;
 
@@ -68,5 +69,6 @@ export function mockApi(routes: Record<string, Handler>) {
     },
   );
   vi.stubGlobal('fetch', fetchMock);
+  vi.stubGlobal('XMLHttpRequest', FakeXhr);
   return fetchMock;
 }

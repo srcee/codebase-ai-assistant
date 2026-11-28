@@ -7,6 +7,8 @@ export * from './lib/factories/create-codebase-request.factory';
 export * from './lib/factories/create-project-request.factory';
 export * from './lib/factories/database-health.factory';
 export * from './lib/factories/document-collection-response.factory';
+export * from './lib/factories/document-summary.factory';
 export * from './lib/factories/health-response.factory';
+export * from './lib/factories/index-job-response.factory';
 export * from './lib/factories/inference-health.factory';
 export * from './lib/factories/project-response.factory';

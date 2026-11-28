@@ -32,6 +32,25 @@ export async function getJson<T>(path: string): Promise<T> {
   return (await response.json()) as T;
 }
 
+export async function sendJson<T>(
+  method: 'POST' | 'PUT' | 'PATCH',
+  path: string,
+  body?: unknown,
+): Promise<T> {
+  const response = await fetch(
+    `/api${path}`,
+    body === undefined
+      ? { method }
+      : {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        },
+  );
+  if (!response.ok) throw await toApiError(response);
+  return (await response.json()) as T;
+}
+
 export async function deleteResource(path: string): Promise<void> {
   const response = await fetch(`/api${path}`, { method: 'DELETE' });
   if (!response.ok) throw await toApiError(response);
