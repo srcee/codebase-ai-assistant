@@ -10,6 +10,7 @@ import {
   normalizeCanonicalPath,
 } from '../utils/normalize-path';
 import { PathRejectedError } from '../errors/path-rejected.error';
+import { isUnmappedHostPath, mapHostPath } from '../utils/map-host-path';
 import { relativeToAnyRoot } from '../utils/relative-within';
 
 const realpathNative = promisify(realpath.native);
@@ -49,12 +50,17 @@ export class PathPolicyService {
     input: string,
     kind: SourceKind = 'code_repository',
   ): Promise<ResolvedSourcePath> {
-    if (!isLocalAbsolutePath(input) || hasTraversalSegment(input)) {
+    const mapping = this.config.hostPathMapping;
+    if (isUnmappedHostPath(input, mapping)) {
+      throw new PathRejectedError('outside-allowed-roots', kind);
+    }
+    const path = mapHostPath(input, mapping);
+    if (!isLocalAbsolutePath(path) || hasTraversalSegment(path)) {
       throw new PathRejectedError('invalid-path', kind);
     }
 
     // realpath resolves every symlink and junction, so containment is checked on the real target.
-    const canonicalPath = await this.realPath(input);
+    const canonicalPath = await this.realPath(path);
     if (!canonicalPath) throw new PathRejectedError('not-found', kind);
 
     const relativePath = relativeToAnyRoot(

@@ -4,6 +4,9 @@
   "license": "UNLICENSED",
   "scripts": {
     "prepare": "husky",
+    "start": "node scripts/app.mjs up",
+    "stop": "node scripts/app.mjs down",
+    "logs": "node scripts/app.mjs logs",
     "start:api": "nx serve api",
     "start:web": "nx serve web",
     "lint": "nx run-many -t lint",
