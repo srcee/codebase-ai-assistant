@@ -1,4 +1,5 @@
 import { PathRejectedError } from '../../codebases/errors/path-rejected.error';
+import { BlobMissingError } from '../../document-ingestion/errors/blob-missing.error';
 import { CollectionRootChangedError } from '../../document-ingestion/errors/collection-root-changed.error';
 import { ParseCancelledError } from '../../document-ingestion/errors/parse-cancelled.error';
 import { EmbeddingDimensionMismatchError } from '../../embeddings/errors/embedding-dimension-mismatch.error';
@@ -15,6 +16,7 @@ const SAFE_MESSAGE_ERRORS = [
   EmbeddingDimensionMismatchError,
   RepositoryRootChangedError,
   CollectionRootChangedError,
+  BlobMissingError,
   ParseCancelledError,
   PathRejectedError,
 ];

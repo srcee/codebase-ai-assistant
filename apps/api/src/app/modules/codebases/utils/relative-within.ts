@@ -16,8 +16,9 @@ export function relativeWithin(root: string, target: string): string | null {
 
 export function relativeToAnyRoot(
   roots: readonly string[],
-  target: string,
+  target: string | null,
 ): string | null {
+  if (target === null) return null;
   for (const root of roots) {
     const relation = relativeWithin(root, target);
     if (relation !== null) return relation;

@@ -40,3 +40,9 @@ export const folderCollectionFactory = sourceFactory.params({
   kind: 'document_collection',
   origin: 'folder',
 });
+
+export const uploadCollectionFactory = sourceFactory.params({
+  kind: 'document_collection',
+  origin: 'upload',
+  canonicalPath: null,
+});

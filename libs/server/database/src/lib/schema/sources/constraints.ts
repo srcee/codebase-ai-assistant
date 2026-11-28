@@ -12,6 +12,11 @@ export const constraints = (table: Columns) => [
     'sources_document_collection_origin_check',
     sql`${table.kind} <> 'document_collection' or ${table.origin} is not null`,
   ),
+  // Upload collections live in the blob store; every other source is a folder on disk.
+  check(
+    'sources_canonical_path_check',
+    sql`(${table.origin} is not distinct from 'upload') = (${table.canonicalPath} is null)`,
+  ),
   check('sources_privacy_mode_check', sql`${table.privacyMode} in ('local')`),
   check(
     'sources_status_check',

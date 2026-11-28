@@ -444,7 +444,11 @@ describe('loadConfig', () => {
   describe('documents and parsing', () => {
     it('uses documented defaults', () => {
       const config = loadConfig({});
-      expect(config.documents).toEqual({ maxBytes: 50 * 1024 * 1024 });
+      expect(config.documents).toEqual({
+        maxBytes: 50 * 1024 * 1024,
+        dataDir: resolve('.local/data'),
+        uploadMaxFiles: 100,
+      });
       expect(config.parsing).toEqual({
         workers: Math.max(1, Math.min(availableParallelism() - 1, 4)),
         inlineMaxBytes: 1024 * 1024,
@@ -456,12 +460,18 @@ describe('loadConfig', () => {
     it('reads overrides', () => {
       const config = loadConfig({
         DOCUMENT_MAX_BYTES: '4096',
+        DATA_DIR: 'custom/data',
+        UPLOAD_MAX_FILES: '5',
         PARSE_WORKERS: '2',
         PARSE_INLINE_MAX_BYTES: '0',
         PARSE_TIMEOUT_MS: '5000',
         PARSE_WORKER_MAX_MEMORY_MB: '128',
       });
-      expect(config.documents.maxBytes).toBe(4096);
+      expect(config.documents).toEqual({
+        maxBytes: 4096,
+        dataDir: resolve('custom/data'),
+        uploadMaxFiles: 5,
+      });
       expect(config.parsing).toEqual({
         workers: 2,
         inlineMaxBytes: 0,
@@ -473,6 +483,8 @@ describe('loadConfig', () => {
     it.each([
       ['DOCUMENT_MAX_BYTES', '1023'],
       ['DOCUMENT_MAX_BYTES', String(1024 * 1024 * 1024 + 1)],
+      ['UPLOAD_MAX_FILES', '0'],
+      ['UPLOAD_MAX_FILES', '1001'],
       ['PARSE_WORKERS', '0'],
       ['PARSE_WORKERS', '17'],
       ['PARSE_INLINE_MAX_BYTES', '-1'],

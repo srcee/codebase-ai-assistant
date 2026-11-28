@@ -7,6 +7,7 @@ import {
   chunkFactory,
   conversationFactory,
   describeWithDatabase,
+  documentFactory,
   indexJobFactory,
   messageCitationFactory,
   messageFactory,
@@ -17,6 +18,7 @@ import {
   sourceFactory,
   sourceFileFactory,
   unitVector,
+  uploadCollectionFactory,
 } from '../../testing';
 import {
   createDatabase,
@@ -27,6 +29,7 @@ import { DatabaseService } from '../nest/database.service';
 import {
   chunks,
   conversations,
+  documents,
   EMBEDDING_DIMENSIONS,
   indexJobs,
   messageCitations,
@@ -53,6 +56,7 @@ type CountedTable =
   | typeof sources
   | typeof sourceFiles
   | typeof chunks
+  | typeof documents
   | typeof indexJobs
   | typeof projectSources;
 
@@ -107,6 +111,7 @@ describeWithDatabase('database schema', (url) => {
     expect(rows.map((r) => r.tablename)).toEqual([
       'chunks',
       'conversations',
+      'documents',
       'index_jobs',
       'message_citations',
       'messages',
@@ -347,14 +352,87 @@ describeWithDatabase('database schema', (url) => {
       'a document collection without an origin',
       { kind: 'document_collection', origin: null },
     ],
+    [
+      'an upload collection with a path',
+      { kind: 'document_collection', origin: 'upload' },
+    ],
+    [
+      'a folder collection without a path',
+      { kind: 'document_collection', origin: 'folder', canonicalPath: null },
+    ],
+    ['a code repository without a path', { canonicalPath: null }],
   ])('rejects a source with %s', async (_label, values) => {
     const error = await failure(sourceFactory.create(values, create()));
     expect(error.code).toBe('23514');
   });
 
+  it('accepts upload collections without a path', async () => {
+    const first = await uploadCollectionFactory.create({}, create());
+    const second = await uploadCollectionFactory.create({}, create());
+    expect([first.canonicalPath, second.canonicalPath]).toEqual([null, null]);
+  });
+
+  describe('documents', () => {
+    it('rejects the same logical path in another case', async () => {
+      const collection = await uploadCollectionFactory.create({}, create());
+      const first = await documentFactory.create(
+        { sourceId: collection.id },
+        create(),
+      );
+      const error = await failure(
+        documentFactory.create(
+          {
+            sourceId: collection.id,
+            logicalPath: first.logicalPath.toUpperCase(),
+          },
+          create(),
+        ),
+      );
+      expect(error.code).toBe('23505');
+    });
+
+    it('allows the same logical path in two collections', async () => {
+      const [first, second] = await uploadCollectionFactory.createList(
+        2,
+        {},
+        create(),
+      );
+      const document = await documentFactory.create(
+        { sourceId: first.id },
+        create(),
+      );
+      await documentFactory.create(
+        { sourceId: second.id, logicalPath: document.logicalPath },
+        create(),
+      );
+      expect(await count(documents)).toBe(2);
+    });
+
+    it.each([
+      ['a malformed blob hash', { blobHash: 'not-a-hash' }],
+      ['a negative size', { sizeBytes: -1 }],
+    ])('rejects %s', async (_label, values) => {
+      const collection = await uploadCollectionFactory.create({}, create());
+      const error = await failure(
+        documentFactory.create(
+          { sourceId: collection.id, ...values },
+          create(),
+        ),
+      );
+      expect(error.code).toBe('23514');
+    });
+
+    it('removes documents with their collection', async () => {
+      const collection = await uploadCollectionFactory.create({}, create());
+      await documentFactory.create({ sourceId: collection.id }, create());
+      await handle.db.delete(sources).where(eq(sources.id, collection.id));
+      expect(await count(documents)).toBe(0);
+    });
+  });
+
   it('accepts a document collection with an origin', async () => {
     const source = await sourceFactory.create(
-      { kind: 'document_collection', origin: 'upload' },
+      { kind: 'document_collection', origin: 'folder' },
       create(),
     );
     expect(source.kind).toBe('document_collection');

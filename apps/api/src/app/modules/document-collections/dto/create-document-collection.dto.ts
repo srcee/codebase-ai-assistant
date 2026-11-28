@@ -5,12 +5,13 @@ import {
   IsString,
   Matches,
   MaxLength,
+  ValidateBy,
 } from 'class-validator';
-import type { CreateDocumentCollectionRequest } from '@codebase-ai/contracts';
+import type { DocumentOrigin } from '@codebase-ai/contracts';
 
-export class CreateDocumentCollectionDto
-  implements CreateDocumentCollectionRequest
-{
+const MAX_PATH_LENGTH = 4096;
+
+export class CreateDocumentCollectionDto {
   @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? value.trim() : value,
   )
@@ -22,11 +23,21 @@ export class CreateDocumentCollectionDto
   })
   name!: string;
 
-  @IsIn(['folder'])
-  origin!: 'folder';
+  @IsIn(['folder', 'upload'])
+  origin!: DocumentOrigin;
 
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(4096)
-  path!: string;
+  @ValidateBy({
+    name: 'pathMatchesOrigin',
+    validator: {
+      validate: (value: unknown, args) =>
+        (args?.object as CreateDocumentCollectionDto).origin === 'folder'
+          ? typeof value === 'string' &&
+            value.length > 0 &&
+            value.length <= MAX_PATH_LENGTH
+          : value === undefined,
+      defaultMessage: () =>
+        'path is required for folder collections and not allowed for upload collections',
+    },
+  })
+  path?: string;
 }

@@ -48,4 +48,8 @@ describe('relativeToAnyRoot', () => {
   it('returns null without roots', () => {
     expect(relativeToAnyRoot([], roots[0])).toBeNull();
   });
+
+  it('returns null for a source without a path', () => {
+    expect(relativeToAnyRoot(roots, null)).toBeNull();
+  });
 });

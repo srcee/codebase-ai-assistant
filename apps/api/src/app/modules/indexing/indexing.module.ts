@@ -35,5 +35,6 @@ import { SourceChangesService } from './services/source-changes.service';
     SourceChangesService,
     ProjectSyncService,
   ],
+  exports: [IndexJobRunnerService],
 })
 export class IndexingModule {}

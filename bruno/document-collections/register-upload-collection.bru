@@ -1,0 +1,26 @@
+meta {
+  name: Register upload collection
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/document-collections
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "Uploaded specs",
+    "origin": "upload"
+  }
+}
+
+vars:post-response {
+  uploadCollectionId: res.body.id
+}
+
+assert {
+  res.status: eq 201
+}

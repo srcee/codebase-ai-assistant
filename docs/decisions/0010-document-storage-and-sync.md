@@ -1,6 +1,6 @@
 # 0010: Document storage and sync
 
-Status: accepted for folder collections (Stage 10, CAA-19); uploads follow in CAA-20
+Status: accepted (folder collections in Stage 10 CAA-19, uploads in CAA-20)
 
 ## Context
 
@@ -17,6 +17,11 @@ Documents change: specs get edited, permission matrices get new rows, design exp
 - **Project-level sync** starts one job per source in the project. Sources that already have an active job are reported, not queued twice.
 - **Basic limits now.** `DOCUMENT_MAX_BYTES` caps one file (upload or folder) and `UPLOAD_MAX_FILES` caps one request. Oversized files are skipped with a reason. Further hardening is in Stage 19.
 - **Folder sync details** (CAA-19). Folders are walked with the exclusion rules of code ingestion (secret filenames, built-in and custom exclusions, `.gitignore`). A file skipped for its content after hashing (`binary`, `invalid-encoding`, `secret-content`) keeps its hash and index identity, so it is not parsed again while unchanged; a failed file is tried again on every sync. `GET /changes` counts as `new` the indexable files without a row, as `changed` those the indexer would not treat as unchanged, and as `removed` the indexed files that are gone or now excluded. `POST /projects/:id/sync` answers `{ started, alreadyActive }`.
+- **Upload details** (CAA-20, migration `0004_upload_documents`).
+  - Upload collections have no `canonical_path`; a CHECK requires a path for every other source and none for uploads. Their documents are listed from `documents` rows, and a blob is read only when its document is parsed, after its hash is checked again.
+  - `POST /document-collections/:id/documents` takes `multipart/form-data` with a `path` field before each `file` part, parsed with `busboy` (a pinned direct dependency, already used by Nest's multer) so files stream to disk instead of memory. The logical path is unique per collection ignoring case, because Windows paths ignore case. The format comes from the extension, never the client's content type.
+  - A successful upload or document delete changes the rows, then starts a sync with the same job model. Both are refused with `409` while the collection has an active job, so a running sync never sees half-changed rows; the source row lock orders them against job creation.
+  - Unreferenced blobs are removed by a sweep, not in the delete transaction. Uploads take a shared Postgres advisory lock while they move a blob in and write its row, and the sweep takes it exclusively, so a blob is never deleted while a row starts to reference it. The sweep runs after a document or upload collection is deleted and after content is replaced; it is idempotent, and a failed sweep only leaves a blob for the next one. It does not run at startup, because a test or eval run with another database must never delete the originals of the real one. Startup only removes temp files older than a day.
 
 ## Consequences
 

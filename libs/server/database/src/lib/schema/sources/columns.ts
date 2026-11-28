@@ -7,7 +7,7 @@ export const columns = {
   name: text('name').notNull(),
   kind: text('kind').notNull().default('code_repository'),
   origin: text('origin'),
-  canonicalPath: text('canonical_path').notNull().unique(),
+  canonicalPath: text('canonical_path').unique(),
   privacyMode: text('privacy_mode').notNull().default('local'),
   status: text('status').notNull().default('registered'),
   lastIndexedCommit: text('last_indexed_commit'),
